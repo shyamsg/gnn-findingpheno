@@ -89,11 +89,11 @@ def main():
     # print(f"Saved data to {self.processed_paths[0]}")
 
 
-    print("\nedge_index\n", edge_index)
-    print(edge_index.shape)
+    # print("\nedge_index\n", edge_index)
+    # print(edge_index.shape)
 
-    print("\nedge_attr\n", edge_attr)
-    print(edge_attr.shape)
+    # print("\nedge_attr\n", edge_attr)
+    # print(edge_attr.shape)
     print("\nGRAPH:\n", data)
 
     print("\nNumber of nodes in the graph:", data.num_nodes)
@@ -113,9 +113,22 @@ def main():
             self.linear1 = torch.nn.Linear(self.num_node_features, self.state_dim)
             self.conv1 = GCNConv(self.state_dim, self.state_dim)
             self.conv2 = GCNConv(self.state_dim, self.state_dim)
-            self.linear2 = torch.nn.Linear(self.state_dim,1)
-        
-        
+            self.linear2 = torch.nn.Linear(self.state_dim,self.state_dim)
+            self.conv3 = GCNConv(self.state_dim, self.state_dim)
+            self.linear3 = torch.nn.Linear(self.state_dim,self.state_dim)
+            self.conv4 = GCNConv(self.state_dim, self.state_dim)
+            self.linear4 = torch.nn.Linear(self.state_dim,self.state_dim)
+            self.conv5 = GCNConv(self.state_dim, self.state_dim)
+            self.linear5 = torch.nn.Linear(self.state_dim,self.state_dim)
+            self.conv6 = GCNConv(self.state_dim, self.state_dim)
+            self.linear6 = torch.nn.Linear(self.state_dim,self.state_dim)
+            self.conv7 = GCNConv(self.state_dim, self.state_dim)
+            self.linear7 = torch.nn.Linear(self.state_dim,self.state_dim)
+            self.conv8 = GCNConv(self.state_dim, self.state_dim)
+
+            
+            self.linear_final = torch.nn.Linear(self.state_dim,1)
+
         def forward(self, x, edge_index):
             # print("1: ", x.shape)
             x = self.linear1(x)
@@ -127,25 +140,43 @@ def main():
             # x = F.dropout(x, training=self.training)
             x = self.conv2(x, edge_index)
             # print("5: ", x.shape)
+            x = F.relu(x)
             x = self.linear2(x)
             # print("6: ", x.shape)
+            x = self.conv3(x, edge_index)
+            x = F.relu(x)
+            x = self.linear3(x)
+            x = self.conv4(x, edge_index)
+            x = F.relu(x)
+            x = self.linear4(x)
+            x = self.conv5(x, edge_index)
+            x = F.relu(x)
+            x = self.linear5(x)
+            x = self.conv6(x, edge_index)
+            x = F.relu(x)
+            x = self.linear6(x)
+            x = self.conv7(x, edge_index)
+            x = F.relu(x)
+            x = self.linear7(x)
+            x = self.conv8(x, edge_index)
+            x = self.linear_final(x)
 
             # print("\n\nX: \n", x)
 
             return x #F.log_softmax(x, dim=1)
         
     device = 'cpu'
-    model = GCN(num_node_features=data.num_node_features, state_dim=64)#.to(device)
+    model = GCN(num_node_features=data.num_node_features, state_dim=64).to(device)
     print(model)
 
 
-    data = data#.to(device)
+    data = data.to(device)
 
     # Loss function
     # mse_loss = F.mse_loss()
     mse_loss = torch.nn.MSELoss()
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.05)#, weight_decay=5e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)#, weight_decay=5e-4)
 
     # Learning rate scheduler
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9999)
@@ -160,16 +191,21 @@ def main():
       optimizer.step()  # Update parameters based on gradients.
       scheduler.step() # Update the learning rate.
       return loss
+    
+    
+    
+    variance = torch.var(data.y)
+    print("Variance of y:", variance)
+    epochs = 500000
 
-    epochs = 100000
-
+    # print(y)
+    # out = model(data)
+    # print(out)
 
     for epoch in range(epochs):
         loss = train()
-        if epoch % 1000 == 0:
-            print(f'Epoch: {epoch:03d}, Loss: {loss:.4f}')
-
-
+        if epoch % 100 == 0:
+            print(f'Epoch: {epoch:03d}, Loss: {loss:.4f}, Learning rate: {scheduler.get_last_lr()[0]:.1e}') 
 
     
     # for epoch in range(epochs):
@@ -202,11 +238,11 @@ def main():
     breakpoint()
 
     model.eval()
-    out = model(data)
+    out = model(data.x, edge_index)
 
-    print(data.y)
-
-
+    print("Out: ", out)
+    print("y: ", data.y)
+    print("Out - y: ", out-data.y)
 
 
 

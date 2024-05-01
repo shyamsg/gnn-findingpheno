@@ -121,8 +121,8 @@ def select_edges(sample_similarity_matrix, cutoff, min_edges=12, max_edges=25, p
     # print(np.allclose(m2,m2.T)) # check that the matrix is symmetric
 
     row_sums = np.sum(m2, axis=1)
-    for i, row_sum in enumerate(row_sums):
-       print("Sum of row {}: {}".format(i+1, row_sum)) # OUTPUT should be >= min_edges for each line
+    # for i, row_sum in enumerate(row_sums):
+    #    print("Sum of row {}: {}".format(i+1, row_sum)) # OUTPUT should be >= min_edges for each line
 
 
     # max_indices = np.argmax(sample_similarity_matrix, axis=1)
@@ -232,20 +232,27 @@ def main():
     CUTOFF = 0.60 # we choose a cutoff of 0.6
     # print("cutoff matrix:\n",sum(sample_similarity_matrix > CUTOFF)) # shape will be (n_samples,)
     
-    adjacency_matrix = select_edges(sample_similarity_matrix, cutoff=CUTOFF, min_edges=12, max_edges=25, print_tmp=False)
-    print("\nFiltered similarity matrix:\n", adjacency_matrix)
-    
-    row_sums = np.sum(adjacency_matrix, axis=1)
-    print("\nNumber of edges per each node after filtering:\n", row_sums)
+    for MIN_EDGES in 7,8,9,10,11,12,13,14,15,17,20:
+        for MAX_EDGES in 10,12,14,17,20,23,26,30,35,40:
+            if MAX_EDGES > MIN_EDGES:
 
-    # Save adjacency_matrix to a CSV file
-    adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes, columns=indexes) # we use the indexes of the samples to set the row and column names
-    adjacency_matrix_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/output/adjacency_matrix_min12_max25.csv", index=True, sep=',')
-    print("\nFinal Adjacency_matrix:\n", adjacency_matrix_df)
+                print(str(MIN_EDGES), " - ", str(MAX_EDGES))
 
-    # plot the graph
-    edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix_df, print_tmp=False)
-    plot_gr(adj = adjacency_matrix_df, edges= edge_index, sample_to_index=sample_to_index_df, print_stats=False)
+                adjacency_matrix = select_edges(sample_similarity_matrix, cutoff=CUTOFF, min_edges=MIN_EDGES, max_edges=MAX_EDGES, print_tmp=False)
+                # print("\nFiltered similarity matrix:\n", adjacency_matrix)
+                
+                row_sums = np.sum(adjacency_matrix, axis=1)
+                # print("\nNumber of edges per each node after filtering:\n", row_sums)
+
+                # Save adjacency_matrix to a CSV file
+                csv_ending = str(MIN_EDGES) + "-"+ str(MAX_EDGES)
+                adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes, columns=indexes) # we use the indexes of the samples to set the row and column names
+                adjacency_matrix_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_edges"+ csv_ending +".csv", index=True, sep=',')
+                # print("\nFinal Adjacency_matrix:\n", adjacency_matrix_df)
+
+                # plot the graph
+                edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix_df, print_tmp=False)
+                plot_gr(adj = adjacency_matrix_df, edges= edge_index, sample_to_index=sample_to_index_df, print_stats=False, csv_ending = csv_ending)
 
 if __name__ == '__main__':
     main()

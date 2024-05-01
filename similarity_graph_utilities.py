@@ -40,7 +40,7 @@ def get_edges_from_adjacency(adjacency_matrix, print_tmp=False):
     return edge_index, edge_attr, sample_to_index_df
 
 
-def plot_gr(adj=None, edges= None, sample_to_index=None, print_stats=False):
+def plot_gr(adj=None, edges= None, sample_to_index=None, print_stats=False, csv_ending=None):
     
     """
     Plot a graph using real sample names as labels
@@ -113,7 +113,13 @@ def plot_gr(adj=None, edges= None, sample_to_index=None, print_stats=False):
     plt.figure(figsize=(10, 8))
     nx.draw(graph, with_labels=True, node_size=20, node_color='skyblue', edge_color="black", font_size=5)#, labels= sample_names)
     plt.title('Graph of Samples with Real Sample Names')
-    plt.show()
+    if csv_ending is not None: plt.text(0.5, 1.05, csv_ending, horizontalalignment='center', fontsize=12, transform=plt.gca().transAxes)
+    # plt.show()
+    
+    if csv_ending is not None:
+        plt.savefig('/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/graph_plots/graph_'+csv_ending+'.png')
+    else:
+        plt.savefig('/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/graph_plots/graph.png')
 
 
 def plot_feature_correlation(data):
