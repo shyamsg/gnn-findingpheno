@@ -54,7 +54,6 @@ def plot_gr(adj=None, edges= None, sample_to_index=None, print_stats=False, csv_
     Returns:
     """
 
-
     # All the following files are in the google colab folder "FindingPheno/output"
     
     # adj = '/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/output/adjacency_matrix.csv'
