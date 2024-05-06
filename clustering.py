@@ -105,7 +105,6 @@ def main():
         plot_dendrogram(Z, title="Hierarchical Clustering Dendrogram after selecting at most {} points per cluster".format(MAX_POINTS_SELECTED_PER_CLUSTER))
 
         # We can repeat this process iteratively to further reduce the number of points. We get to a point where each cluster contains exactly 1 point except for one cluster, which contains the remaining points. We keep only one point for this cluster. Then repeat.
-        # breakpoint()
 
 
     # TODO
