@@ -48,12 +48,13 @@ def get_similarity_matrix(sample_pcs, n_samples, print_tmp=False):
 
     # Compute the similarity matrix as 1 - distance
     sample_similarity_matrix = np.ones((n_samples,n_samples))-dist_matrix
+    # TODO INSTEAD OF FOCUSING ON SIMILARITY, USE THE DISTANCES: sample_similarity_matrix = dist_matrix
     # We want 0s insted of 1s for the diagonal
     np.fill_diagonal(sample_similarity_matrix, 0)
     if print_tmp: print("\nMatrix after 1-dist_matrix and 0s in the diagonal operation\n",sample_similarity_matrix)
 
     df = pd.DataFrame(sample_similarity_matrix)
-    df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA_Moiz/sample_similarity_matrix.tsv", sep='\t', index=True, header=True)
+    df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/sample_similarity_matrix.tsv", sep='\t', index=True, header=True)
 
     return sample_similarity_matrix
 
@@ -160,7 +161,7 @@ def select_edges(sample_similarity_matrix, cutoff, min_edges=12, max_edges=25, p
     #np.set_printoptions(threshold=np.inf) # print the full matrix instead of the truncated version
     if print_tmp: print("\nfinal matrix\n",filtered_similarity_matrix)
     
-    print(np.sum(filtered_similarity_matrix))
+    print("Number of edges: ", np.sum(filtered_similarity_matrix))
 
     return filtered_similarity_matrix
 
@@ -188,11 +189,11 @@ def filter(adj_matrix):
 
 def main():
 
-    N_PCs = 50 # Defined after using the R script (see google colab)
+    N_PCs = 120 # Defined after using the R script (see google colab)
 
-    sample_pcs = pd.read_excel("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA_Moiz/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)
+    sample_pcs = pd.read_excel("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)
     print(sample_pcs)
-    #sample_pcs = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA_Moiz/principalComponents_ofFish_basedOnGWAS.xlsx", sep='\t', header=0)
+    #sample_pcs = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", sep='\t', header=0)
 
     ### We want to keep only the samples for which we have transcriptomics and metagenomics data. 'final_input' is the file that contains all transcriptomics and metagenomics data for the samples we have such data for.
     MG_T_Ph = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
@@ -232,8 +233,8 @@ def main():
     CUTOFF = 0.60 # we choose a cutoff of 0.6
     # print("cutoff matrix:\n",sum(sample_similarity_matrix > CUTOFF)) # shape will be (n_samples,)
     
-    for MIN_EDGES in 7,8,9,10,11,12,13,14,15,17,20:
-        for MAX_EDGES in 10,12,14,17,20,23,26,30,35,40:
+    for MIN_EDGES in 1,3,4,5,6,7,8,9,10,11,12,13,14,15,17,20:
+        for MAX_EDGES in 5,6,8,10,12,14,17,20,23,26,30,35,40,50:
             if MAX_EDGES > MIN_EDGES:
 
                 print(str(MIN_EDGES), " - ", str(MAX_EDGES))
@@ -245,9 +246,9 @@ def main():
                 # print("\nNumber of edges per each node after filtering:\n", row_sums)
 
                 # Save adjacency_matrix to a CSV file
-                csv_ending = str(MIN_EDGES) + "-"+ str(MAX_EDGES)
+                csv_ending =str(N_PCs) + "PCs_" + str(MIN_EDGES) + "-"+ str(MAX_EDGES) + "_edges"
                 adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes, columns=indexes) # we use the indexes of the samples to set the row and column names
-                adjacency_matrix_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_edges"+ csv_ending +".csv", index=True, sep=',')
+                adjacency_matrix_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_"+ csv_ending +".csv", index=True, sep=',')
                 # print("\nFinal Adjacency_matrix:\n", adjacency_matrix_df)
 
                 # plot the graph

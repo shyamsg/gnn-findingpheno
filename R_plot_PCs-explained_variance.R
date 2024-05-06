@@ -1,9 +1,11 @@
 
 
-ev = read.table("Desktop/Biosust_CEH/data_Shyam/PCA_Moiz/principalComponents_ofFish_basedOnGWAS_EIGENVALUES.tsv")
+ev = read.table("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA_Moiz/principalComponents_ofFish_basedOnGWAS_EIGENVALUES.tsv")
 sum(ev)
 ev/sum(ev)
 
-plot(ev$V1)
-plot(cumsum(ev$V1)/sum(ev$V1))
+#plot(ev$V1)
+
+plot(cumsum(ev$V1)/sum(ev$V1), xlab = "PC number", ylab = "Variance explained")
 abline(h=0.5)
+plot()

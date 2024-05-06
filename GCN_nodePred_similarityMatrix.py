@@ -12,6 +12,10 @@ import networkx as nx
 import torch
 import torch.nn.functional as F
 from torch_geometric.datasets import Planetoid, TUDataset # to check the types of dataset variables
+from torch.utils.data import random_split
+from torch_geometric.loader import DataLoader
+
+
 
 from similarity_graph_utilities import get_edges_from_adjacency, plot_feature_correlation
 
@@ -34,9 +38,9 @@ from similarity_graph_utilities import get_edges_from_adjacency, plot_feature_co
 
 def main():
     
-    adjacency_matrix = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_edges10-30.csv", header=0, index_col=0)
+    adjacency_matrix = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_120PCs_15-20_edges.csv", header=0, index_col=0)
     # print("\nAdjacency matrix:\n", adjacency_matrix)
-
+    
     # n_edges = np.sum(adjacency_matrix.values > 0)
     # print("Number of edges:", n_edges)
 
@@ -109,7 +113,7 @@ def main():
     class GCN(torch.nn.Module):
         def __init__(self, hidden_channels):
             super().__init__()
-            torch.manual_seed(12)
+            torch.manual_seed(1234567)
             self.conv1 = GCNConv(data.num_features, hidden_channels)
             self.conv2 = GCNConv(hidden_channels, 1)
 
@@ -130,19 +134,25 @@ def main():
             
             self.linear1 = torch.nn.Linear(self.num_node_features, self.state_dim)
             self.conv1 = GCNConv(self.state_dim, self.state_dim)
-            self.linear2 = torch.nn.Linear(self.state_dim,self.state_dim)
-            self.conv2 = GCNConv(self.state_dim, self.state_dim)
-            self.linear3 = torch.nn.Linear(self.state_dim,self.state_dim)
-            self.conv3 = GCNConv(self.state_dim, self.state_dim)
-            self.linear4 = torch.nn.Linear(self.state_dim,self.state_dim)
-            self.conv4 = GCNConv(self.state_dim, self.state_dim)
-            self.linear5 = torch.nn.Linear(self.state_dim,self.state_dim)
-            self.conv5 = GCNConv(self.state_dim, self.state_dim)
 
-            self.linear6 = torch.nn.Linear(self.state_dim,self.state_dim)
+            self.conv2 = GCNConv(self.state_dim, self.state_dim)
+            self.linear2 = torch.nn.Linear(self.state_dim,self.state_dim)
+
+            self.conv3 = GCNConv(self.state_dim, self.state_dim)
+            self.linear3 = torch.nn.Linear(self.state_dim,self.state_dim)
+            
+            self.conv4 = GCNConv(self.state_dim, self.state_dim)
+            self.linear4 = torch.nn.Linear(self.state_dim,self.state_dim)
+            
+
+            self.conv5 = GCNConv(self.state_dim, self.state_dim)
+            self.linear5 = torch.nn.Linear(self.state_dim,self.state_dim)
+
             self.conv6 = GCNConv(self.state_dim, self.state_dim)
-            self.linear7 = torch.nn.Linear(self.state_dim,self.state_dim)
+            self.linear6 = torch.nn.Linear(self.state_dim,self.state_dim)
+            
             self.conv7 = GCNConv(self.state_dim, self.state_dim)
+            self.linear7 = torch.nn.Linear(self.state_dim,self.state_dim)
 
             self.conv8 = GCNConv(self.state_dim, self.state_dim)
 
@@ -155,28 +165,35 @@ def main():
             x = self.conv1(x, edge_index)
             # print("3: ", x.shape)
             x = F.relu(x)
+            # x = F.dropout(x, p=0.2, training=self.training)
             # print("4: ", x.shape)
             # x = F.dropout(x, training=self.training)
             x = self.conv2(x, edge_index)
             # print("5: ", x.shape)
             x = F.relu(x)
+            # x = F.dropout(x, p=0.2, training=self.training)
             x = self.linear2(x)
             # print("6: ", x.shape)
             x = self.conv3(x, edge_index)
             x = F.relu(x)
+            # x = F.dropout(x, p=0.2, training=self.training)
             x = self.linear3(x)
             x = self.conv4(x, edge_index)
             x = F.relu(x)
+            # x = F.dropout(x, p=0.2, training=self.training)
             x = self.linear4(x)
             x = self.conv5(x, edge_index)
             x = F.relu(x)
+            # x = F.dropout(x, p=0.2, training=self.training)
             x = self.linear5(x)
 
             x = self.conv6(x, edge_index)
             x = F.relu(x)
+            # x = F.dropout(x, p=0.5, training=self.training)
             x = self.linear6(x)
             x = self.conv7(x, edge_index)
             x = F.relu(x)
+            # x = F.dropout(x, p=0.5, training=self.training)
             x = self.linear7(x)
 
             x = self.conv8(x, edge_index)
@@ -195,11 +212,21 @@ def main():
 
     data = data.to(device)
 
+    # Split into training and validation
+    # rng = torch.Generator().manual_seed(0)
+    # train_dataset, validation_dataset = random_split(data, (180, 27), generator=rng)
+
+    # Create dataloader for training and validation
+    # train_loader = DataLoader(train_dataset, batch_size=180)
+    # validation_loader = DataLoader(validation_dataset, batch_size=27)
+    # test_loader = DataLoader(test_dataset, batch_size=44)
+
+
     # Loss function
     # mse_loss = F.mse_loss()
     mse_loss = torch.nn.MSELoss()
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2,weight_decay=1.5e-3) #weight_decay=5e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2,weight_decay=1e-3) #weight_decay=5e-4)
 
     # Learning rate scheduler
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9999)
