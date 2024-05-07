@@ -6,11 +6,12 @@ from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+from scipy.spatial import distance
 from scipy.spatial.distance import pdist
 
-CLUSTERING_METHOS = "Hierarchical" # "K-means", "Hierarchical", "DBSCAN
-MAX_POINTS_SELECTED_PER_CLUSTER = 5
 
+CLUSTERING_METHOS = "Hierarchical" # "K-means", "Hierarchical", "DBSCAN
+MAX_POINTS_SELECTED_PER_CLUSTER = 36 # Should be >1
 
 
 def plot_dendrogram(Z, title="Hierarchical Clustering Dendrogram"):
@@ -25,23 +26,22 @@ def plot_dendrogram(Z, title="Hierarchical Clustering Dendrogram"):
 def main():
 
     sample_pcs = pd.read_excel("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)    
-    # sample_pcs = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_clustered_filtered.csv", header=0, index_col=0)
-
+    # sample_pcs = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)
 
     # get the IDs of the sample with metagenomics and transcriptomics data
     samples_with_MG_T_Ph_data = list((pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)).index)
 
     sample_pcs = sample_pcs[sample_pcs.index.isin(samples_with_MG_T_Ph_data)]
 
-    N_PCs = 200
-    sample_pcs = sample_pcs.iloc[:,1:1 + N_PCs]
+    N_PCs = 350
+    sample_pcs = sample_pcs.iloc[:,0:N_PCs]
+
     # sample_pcs = sample_pcs.iloc[0:20, :]
 
     if CLUSTERING_METHOS == "K-means":
-
         ### K-means clustering ############
-
         # given some points in a N dimensional space, cluster them into K components, where each component is the average of the group
+
         K = 3
 
         # Perform K-means clustering
@@ -56,7 +56,6 @@ def main():
         print("Centers: \n", centers)
 
 
-        # breakpoint()
         plt.figure(figsize=(8, 6))
         plt.scatter(sample_pcs[1], sample_pcs[2])
         plt.scatter(centers[:,0], y=centers[:,1], color="red")
@@ -76,7 +75,7 @@ def main():
         plot_dendrogram(Z)
         
         # Determine clusters based on a distance threshold
-        threshold = 900  # Adjust as needed
+        threshold = 1050  # Adjust as needed
         clusters = fcluster(Z, threshold, criterion='distance')
         # Aggregate points within each cluster
         cluster_counts = np.bincount(clusters)[1:]
@@ -89,25 +88,46 @@ def main():
             cluster_averages[cluster_id] = cluster_average
         # Now cluster_averages contains the average point for each cluster
 
-        
+
         unique_points = []
         for cluster_id in np.unique(clusters):
             cluster_points = sample_pcs[clusters == cluster_id]
-            for i in range(0, min(cluster_points.shape[0], MAX_POINTS_SELECTED_PER_CLUSTER)): # Keep at most "MAX_..." points per cluster
-                unique_points.append(cluster_points.iloc[i]) 
-        # TODO: Can we IMPROVED: instead of keeping the first "MAX_..." points, we can keep the points that are FURTHEST from each other in the cluster
+        # Keep at most "MAX_POINTS_SELECTED_PER_CLUSTER" points per cluster
+            # for i in range(0, min(cluster_points.shape[0], MAX_POINTS_SELECTED_PER_CLUSTER)):
+            #     unique_points.extend(cluster_points.iloc[i].index.tolist()) 
+        # IMPROVEMENT: instead of keeping the first "MAX_POINTS_SELECTED_PER_CLUSTER" points, we keep the points of each cluster that are FURTHEST from each other in the cluster
+            if cluster_points.shape[0] <= MAX_POINTS_SELECTED_PER_CLUSTER:
+                unique_points.extend(cluster_points.index.tolist())
+            else:
+                for i in range(0, MAX_POINTS_SELECTED_PER_CLUSTER-1):
+                    distances = pdist(cluster_points)
+                    dist_matrix = distance.squareform(distances)
+                    max_distance_indices = list(np.unravel_index(np.argmax(dist_matrix), dist_matrix.shape))
+                    
+                    furthest_points = cluster_points.iloc[max_distance_indices].index.tolist()
+                    unique_points.extend(furthest_points)
+                    cluster_points = cluster_points.drop(furthest_points[1]) # 1 or 0. We drop one of the furthest points from the list, so that we can find the next furthest point
 
-        sample_pcs_d = pd.DataFrame(unique_points)
+                    # Add the furthest points to the list
+                    # furthest_points.extend(cluster_points.iloc[max_distance_indices])
+                    i+=1
 
-        sample_pcs_d.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_clustered_filtered.csv", index=True, sep=',')
+        unique_points = list(set(unique_points))
+
+        sample_pcs_d = sample_pcs.loc[unique_points]
+
+        # sample_pcs_d = pd.DataFrame(unique_points)
+        sample_pcs_d = sample_pcs_d.sort_index()
 
         Z = linkage(sample_pcs_d, method='average')
-        plot_dendrogram(Z, title="Hierarchical Clustering Dendrogram after selecting at most {} points per cluster".format(MAX_POINTS_SELECTED_PER_CLUSTER))
+        plot_dendrogram(Z, title="Hierarchical Clustering Dendrogram after selecting at most the furthest {} points per cluster".format(MAX_POINTS_SELECTED_PER_CLUSTER))
+
+        sample_pcs_d.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", index=True, sep=',')
 
         # We can repeat this process iteratively to further reduce the number of points. We get to a point where each cluster contains exactly 1 point except for one cluster, which contains the remaining points. We keep only one point for this cluster. Then repeat.
 
 
-    # TODO
+    # TODO DBSCAN
     # if CLUSTERING_METHOS == "DBSCAN":
 
 if __name__ == "__main__":

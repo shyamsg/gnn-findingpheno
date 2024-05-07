@@ -8,14 +8,12 @@ from torch_geometric.utils import is_undirected
 import matplotlib.pyplot as plt
 from torch_geometric.nn import GCNConv
 from torch_geometric.utils import to_networkx
-import networkx as nx
 import torch
 import torch.nn.functional as F
 from torch_geometric.datasets import Planetoid, TUDataset # to check the types of dataset variables
 from torch.utils.data import random_split
 from torch_geometric.loader import DataLoader
-
-
+import os
 
 from similarity_graph_utilities import get_edges_from_adjacency, plot_feature_correlation
 
@@ -37,12 +35,12 @@ from similarity_graph_utilities import get_edges_from_adjacency, plot_feature_co
 
 
 def main():
-    
-    adjacency_matrix = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_120PCs_15-20_edges.csv", header=0, index_col=0)
-    # print("\nAdjacency matrix:\n", adjacency_matrix)
-    
-    # n_edges = np.sum(adjacency_matrix.values > 0)
-    # print("Number of edges:", n_edges)
+    adj_matrix_path = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_hc_350PCs_20-40_edges.csv"
+    adjacency_matrix = pd.read_csv(adj_matrix_path, header=0, index_col=0)
+    file_name = os.path.basename(adj_matrix_path)
+    print("\nAdjacency matrix: ", file_name)
+        
+    # print("Number of edges:", np.sum(adjacency_matrix.values > 0))
 
     ### PHENOTYPE
     ## 'final_input' is the file that contains Phenotype
@@ -111,17 +109,23 @@ def main():
 
 
     class GCN(torch.nn.Module):
-        def __init__(self, hidden_channels):
+        def __init__(self, num_node_features, state_dim):
             super().__init__()
             torch.manual_seed(1234567)
-            self.conv1 = GCNConv(data.num_features, hidden_channels)
-            self.conv2 = GCNConv(hidden_channels, 1)
+
+            self.num_node_features = num_node_features
+            self.state_dim = state_dim
+
+            self.conv1 = GCNConv(self.num_node_features, self.state_dim)
+            self.conv2 = GCNConv(self.state_dim, self.state_dim)
+            self.linear = torch.nn.Linear(self.state_dim,1)
 
         def forward(self, x, edge_index):
             x = self.conv1(x, edge_index)
             x = x.relu()
-            x = F.dropout(x, p=0.5, training=self.training)
+            # x = F.dropout(x, p=0.5, training=self.training)
             x = self.conv2(x, edge_index)
+            x = self.linear(x)
             return x
 
     class GCN_deep(torch.nn.Module):
@@ -143,18 +147,17 @@ def main():
             
             self.conv4 = GCNConv(self.state_dim, self.state_dim)
             self.linear4 = torch.nn.Linear(self.state_dim,self.state_dim)
-            
 
             self.conv5 = GCNConv(self.state_dim, self.state_dim)
-            self.linear5 = torch.nn.Linear(self.state_dim,self.state_dim)
+            # self.linear5 = torch.nn.Linear(self.state_dim,self.state_dim)
 
-            self.conv6 = GCNConv(self.state_dim, self.state_dim)
-            self.linear6 = torch.nn.Linear(self.state_dim,self.state_dim)
+            # self.conv6 = GCNConv(self.state_dim, self.state_dim)
+            # self.linear6 = torch.nn.Linear(self.state_dim,self.state_dim)
             
-            self.conv7 = GCNConv(self.state_dim, self.state_dim)
-            self.linear7 = torch.nn.Linear(self.state_dim,self.state_dim)
+            # self.conv7 = GCNConv(self.state_dim, self.state_dim)
+            # self.linear7 = torch.nn.Linear(self.state_dim,self.state_dim)
 
-            self.conv8 = GCNConv(self.state_dim, self.state_dim)
+            # self.conv8 = GCNConv(self.state_dim, self.state_dim)
 
             self.linear_final = torch.nn.Linear(self.state_dim,1)
 
@@ -181,23 +184,23 @@ def main():
             x = self.conv4(x, edge_index)
             x = F.relu(x)
             # x = F.dropout(x, p=0.2, training=self.training)
-            x = self.linear4(x)
-            x = self.conv5(x, edge_index)
-            x = F.relu(x)
+            # x = self.linear4(x)
+            # x = self.conv5(x, edge_index)
+            # x = F.relu(x)
             # x = F.dropout(x, p=0.2, training=self.training)
-            x = self.linear5(x)
+            # x = self.linear5(x)
 
-            x = self.conv6(x, edge_index)
-            x = F.relu(x)
+            # x = self.conv6(x, edge_index)
+            # x = F.relu(x)
             # x = F.dropout(x, p=0.5, training=self.training)
-            x = self.linear6(x)
-            x = self.conv7(x, edge_index)
-            x = F.relu(x)
+            # x = self.linear6(x)
+            # x = self.conv7(x, edge_index)
+            # x = F.relu(x)
             # x = F.dropout(x, p=0.5, training=self.training)
-            x = self.linear7(x)
+            # x = self.linear7(x)
 
-            x = self.conv8(x, edge_index)
-            x = F.relu(x)
+            # x = self.conv8(x, edge_index)
+            # x = F.relu(x)
             
             x = self.linear_final(x)
 
@@ -206,7 +209,7 @@ def main():
             return x #F.log_softmax(x, dim=1)
         
     device = 'cpu'
-    model = GCN_deep(num_node_features=data.num_node_features, state_dim=24).to(device) #state_dim=16
+    model = GCN(num_node_features=data.num_node_features, state_dim=24).to(device) #state_dim=16
     # model = GCN(hidden_channels=64).to(device)
     print(model)
 
@@ -285,13 +288,10 @@ def main():
 
     #     # HERE ADD VALIDATION LOSS COMPUTATION AND THEN PRINT
 
-
+    ### EVALUATION
     model.eval()
-    out = model(data.x, edge_index)
-
-    # for predicted, actual  in zip(out, data.y): 
-        # print(f'Predicted: {predicted.item():.4f}, Actual: {actual.item():.4f}, Difference: {abs(predicted.item()-actual.item()):.4f}')
-
+    out = model(data.x, edge_index)    
+    # for predicted, actual  in zip(out, data.y): print(f'Predicted: {predicted.item():.4f}, Actual: {actual.item():.4f}, Difference: {abs(predicted.item()-actual.item()):.4f}')
     print("Avg difference: \n",np.mean(np.abs(out.detach().numpy() - data.y.detach().numpy())))
 
     breakpoint()

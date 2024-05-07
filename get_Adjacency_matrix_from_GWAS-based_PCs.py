@@ -19,7 +19,7 @@ def get_similarity_matrix(sample_pcs, n_samples, print_tmp=False):
     - parameter1 (type): Description of parameter1
     
     Returns:
-    - return_type: Sample_similarity_matrix
+    - return: Sample_similarity_matrix
     """
 
     #TODO Shyam will send a new distance matrix (start from this, it is not from PCA) to compute the similarity matrix from. We will try different distance matrices, different wats to build the distance matrix
@@ -133,8 +133,6 @@ def select_edges(sample_similarity_matrix, cutoff, min_edges=12, max_edges=25, p
     # print(np.allclose(m2,m2.T)) # check that the matrix is symmetric
 
 
-
-
     if print_tmp: print("\nm2:\n", m2)
 
     #### 3: Take the top N edges for each node (maximum number of edges for each node)
@@ -189,13 +187,14 @@ def filter(adj_matrix):
 
 def main():
 
-    N_PCs = 120 # Defined after using the R script (see google colab)
+    N_PCs = 350 # Defined after using the R script (see google colab)
 
-    sample_pcs = pd.read_excel("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)
-    print(sample_pcs)
-    #sample_pcs = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", sep='\t', header=0)
+    # sample_pcs = pd.read_excel("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)
+    sample_pcs = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)
+    # print(sample_pcs)
 
-    ### We want to keep only the samples for which we have transcriptomics and metagenomics data. 'final_input' is the file that contains all transcriptomics and metagenomics data for the samples we have such data for.
+    ### FILTERING for MG T data availability
+    ## Keep only the samples for which we have transcriptomics and metagenomics data. 'final_input' is the file that contains all transcriptomics and metagenomics data for the samples we have such data for.
     MG_T_Ph = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
     # get the IDs of the sample with metagenomics and transcriptomics data
     samples_with_MG_T_Ph_data = list(MG_T_Ph.index)
@@ -211,13 +210,13 @@ def main():
     # print(len(sample_pcs.index))
 
     N_SAMPLES= sample_pcs.shape[0]
-    # print(N_SAMPLES) # 207 after filtering, 361 before filtering
+    # print(N_SAMPLES) # 207 after filtering, 361 before filtering (now we added cluster-filtering, so the number of samples is different from the one in the R script)
 
     indexes = sample_pcs.index
 
 
     # We select the first N_PCs features, N_PCs = 50 account for ~50% variability (see R file for the PC analysis)
-    sample_pcs = sample_pcs.iloc[:,1:1 + N_PCs]
+    sample_pcs = sample_pcs.iloc[:,0:N_PCs]
     #sample_pcs = sample_pcs.iloc[0:4,0:3] # for DEBUG
 
 
@@ -229,9 +228,11 @@ def main():
     rows, cols = sample_similarity_matrix.shape
     # Extract the upper diagonal elements into a vector
     upper_diag_vector = sample_similarity_matrix[np.triu_indices(rows, k=1)]
-    # analyze_similarity(upper_diag_vector) # UNCOMMENT to plot a histogram of similarity-based edges distribution in order to choose a cutoff value
+    analyze_similarity(upper_diag_vector) # UNCOMMENT to plot a histogram of similarity-based edges distribution in order to choose a cutoff value
     CUTOFF = 0.60 # we choose a cutoff of 0.6
-    # print("cutoff matrix:\n",sum(sample_similarity_matrix > CUTOFF)) # shape will be (n_samples,)
+
+
+    print("cutoff matrix:\n",sum(sample_similarity_matrix > CUTOFF)) # shape will be (n_samples,)
     
     for MIN_EDGES in 1,3,4,5,6,7,8,9,10,11,12,13,14,15,17,20:
         for MAX_EDGES in 5,6,8,10,12,14,17,20,23,26,30,35,40,50:
@@ -246,7 +247,7 @@ def main():
                 # print("\nNumber of edges per each node after filtering:\n", row_sums)
 
                 # Save adjacency_matrix to a CSV file
-                csv_ending =str(N_PCs) + "PCs_" + str(MIN_EDGES) + "-"+ str(MAX_EDGES) + "_edges"
+                csv_ending = str("hc_") + str(N_PCs) + "PCs_" + str(MIN_EDGES) + "-"+ str(MAX_EDGES) + "_edges"
                 adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes, columns=indexes) # we use the indexes of the samples to set the row and column names
                 adjacency_matrix_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_"+ csv_ending +".csv", index=True, sep=',')
                 # print("\nFinal Adjacency_matrix:\n", adjacency_matrix_df)
