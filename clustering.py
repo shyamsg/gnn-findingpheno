@@ -96,24 +96,24 @@ def main():
             # for i in range(0, min(cluster_points.shape[0], MAX_POINTS_SELECTED_PER_CLUSTER)):
             #     unique_points.extend(cluster_points.iloc[i].index.tolist()) 
         # IMPROVEMENT: instead of keeping the first "MAX_POINTS_SELECTED_PER_CLUSTER" points, we keep the points of each cluster that are FURTHEST from each other in the cluster
-            if cluster_points.shape[0] <= MAX_POINTS_SELECTED_PER_CLUSTER:
+            num_points = cluster_points.shape[0]
+            if num_points <= MAX_POINTS_SELECTED_PER_CLUSTER:
                 unique_points.extend(cluster_points.index.tolist())
             else:
-                for i in range(0, MAX_POINTS_SELECTED_PER_CLUSTER-1):
+                new_cluster_points = []
+                # for i in range(0, MAX_POINTS_SELECTED_PER_CLUSTER-1):
+                while len(new_cluster_points) < MAX_POINTS_SELECTED_PER_CLUSTER:
                     distances = pdist(cluster_points)
                     dist_matrix = distance.squareform(distances)
                     max_distance_indices = list(np.unravel_index(np.argmax(dist_matrix), dist_matrix.shape))
-                    
+
                     furthest_points = cluster_points.iloc[max_distance_indices].index.tolist()
-                    unique_points.extend(furthest_points)
+                    new_cluster_points.extend(furthest_points)
+                    new_cluster_points = list(set(new_cluster_points))
                     cluster_points = cluster_points.drop(furthest_points[1]) # 1 or 0. We drop one of the furthest points from the list, so that we can find the next furthest point
-
-                    # Add the furthest points to the list
-                    # furthest_points.extend(cluster_points.iloc[max_distance_indices])
-                    i+=1
-
+                # breakpoint()
+                unique_points.extend(new_cluster_points)
         unique_points = list(set(unique_points))
-
         sample_pcs_d = sample_pcs.loc[unique_points]
 
         # sample_pcs_d = pd.DataFrame(unique_points)
@@ -121,6 +121,9 @@ def main():
 
         Z = linkage(sample_pcs_d, method='average')
         plot_dendrogram(Z, title="Hierarchical Clustering Dendrogram after selecting at most the furthest {} points per cluster".format(MAX_POINTS_SELECTED_PER_CLUSTER))
+        clusters = fcluster(Z, threshold, criterion='distance')
+        cluster_counts = np.bincount(clusters)[1:]
+        print("Number of points in each cluster:\n", cluster_counts) # Number of points in each cluster
 
         sample_pcs_d.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", index=True, sep=',')
 
