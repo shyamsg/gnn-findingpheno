@@ -1,0 +1,9 @@
+__pycache__/
+
+
+**/data/*
+**/*.png
+**/*.pt
+.vscode/
+
+.ipynb_checkpoints
