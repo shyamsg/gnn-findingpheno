@@ -33,6 +33,8 @@ def main():
 
     sample_pcs = sample_pcs[sample_pcs.index.isin(samples_with_MG_T_Ph_data)]
 
+    print(sample_pcs.shape)
+
     N_PCs = 350
     sample_pcs = sample_pcs.iloc[:,0:N_PCs]
 
@@ -89,16 +91,16 @@ def main():
         # Now cluster_averages contains the average point for each cluster
 
 
-        unique_points = []
+        selected_points = []
         for cluster_id in np.unique(clusters):
             cluster_points = sample_pcs[clusters == cluster_id]
         # Keep at most "MAX_POINTS_SELECTED_PER_CLUSTER" points per cluster
             # for i in range(0, min(cluster_points.shape[0], MAX_POINTS_SELECTED_PER_CLUSTER)):
-            #     unique_points.extend(cluster_points.iloc[i].index.tolist()) 
+            #     selected_points.extend(cluster_points.iloc[i].index.tolist()) 
         # IMPROVEMENT: instead of keeping the first "MAX_POINTS_SELECTED_PER_CLUSTER" points, we keep the points of each cluster that are FURTHEST from each other in the cluster
             num_points = cluster_points.shape[0]
             if num_points <= MAX_POINTS_SELECTED_PER_CLUSTER:
-                unique_points.extend(cluster_points.index.tolist())
+                selected_points.extend(cluster_points.index.tolist())
             else:
                 new_cluster_points = []
                 # for i in range(0, MAX_POINTS_SELECTED_PER_CLUSTER-1):
@@ -112,11 +114,11 @@ def main():
                     new_cluster_points = list(set(new_cluster_points))
                     cluster_points = cluster_points.drop(furthest_points[1]) # 1 or 0. We drop one of the furthest points from the list, so that we can find the next furthest point
                 # breakpoint()
-                unique_points.extend(new_cluster_points)
-        unique_points = list(set(unique_points))
-        sample_pcs_d = sample_pcs.loc[unique_points]
+                selected_points.extend(new_cluster_points)
+        selected_points = list(set(selected_points))
+        sample_pcs_d = sample_pcs.loc[selected_points]
 
-        # sample_pcs_d = pd.DataFrame(unique_points)
+        # sample_pcs_d = pd.DataFrame(selected_points)
         sample_pcs_d = sample_pcs_d.sort_index()
 
         Z = linkage(sample_pcs_d, method='average')
@@ -129,6 +131,7 @@ def main():
 
         # We can repeat this process iteratively to further reduce the number of points. We get to a point where each cluster contains exactly 1 point except for one cluster, which contains the remaining points. We keep only one point for this cluster. Then repeat.
 
+        print(sample_pcs_d.shape)
 
     # TODO DBSCAN
     # if CLUSTERING_METHOS == "DBSCAN":

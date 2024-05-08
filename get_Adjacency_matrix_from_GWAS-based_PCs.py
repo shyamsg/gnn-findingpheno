@@ -184,14 +184,19 @@ def filter(adj_matrix):
 
 
 
+N_PCs = 180 # Defined after using the R script (see google colab)
+
 
 def main():
-
-    N_PCs = 350 # Defined after using the R script (see google colab)
 
     # sample_pcs = pd.read_excel("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)
     sample_pcs = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)
     # print(sample_pcs)
+
+    # row_F400 = sample_pcs.loc["F400"]
+    # sample_pcs = sample_pcs.drop("F400")
+
+
 
     ### FILTERING for MG T data availability
     ## Keep only the samples for which we have transcriptomics and metagenomics data. 'final_input' is the file that contains all transcriptomics and metagenomics data for the samples we have such data for.
@@ -255,6 +260,10 @@ def main():
                 # plot the graph
                 edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix_df, print_tmp=False)
                 plot_gr(adj = adjacency_matrix_df, edges= edge_index, sample_to_index=sample_to_index_df, print_stats=False, csv_ending = csv_ending)
+
+
+    # find the highly connected node
+    selected_row = adjacency_matrix[np.argmax(row_sums)] # adjacency_matrix.iloc[np.argmax(row_sums)]
 
 if __name__ == '__main__':
     main()

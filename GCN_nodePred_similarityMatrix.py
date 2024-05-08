@@ -1,13 +1,7 @@
 from torch_geometric.data import Data
 import numpy as np
 import pandas as pd
-from scipy.spatial import distance
-from torch_geometric.utils import from_scipy_sparse_matrix
-import scipy.sparse as sp
-from torch_geometric.utils import is_undirected
-import matplotlib.pyplot as plt
 from torch_geometric.nn import GCNConv
-from torch_geometric.utils import to_networkx
 import torch
 import torch.nn.functional as F
 from torch_geometric.datasets import Planetoid, TUDataset # to check the types of dataset variables
@@ -35,26 +29,21 @@ from similarity_graph_utilities import get_edges_from_adjacency, plot_feature_co
 
 
 def main():
-    adj_matrix_path = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_hc_350PCs_20-40_edges.csv"
+    adj_matrix_path = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_hc_180PCs_20-40_edges.csv"
     adjacency_matrix = pd.read_csv(adj_matrix_path, header=0, index_col=0)
     file_name = os.path.basename(adj_matrix_path)
-    print("\nAdjacency matrix: ", file_name)
-        
+    
+    print("\nUsing adjacency matrix: ", file_name)    
     # print("Number of edges:", np.sum(adjacency_matrix.values > 0))
 
     ### PHENOTYPE
-    ## 'final_input' is the file that contains Phenotype
     MG_T_Ph_f = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
-    # get the IDs of the sample with phenotype data
-    # samples_with_MG_T_Ph_data_f = list(MG_T_Ph_f.index)
-    #print(samples_with_MG_T_Ph_data)
 
     ## Study correlations between features in matrix MG_T
     # plot_feature_correlation(MG_T)
     
     MG_T_Ph_filteredSamples = MG_T_Ph_f.loc[adjacency_matrix.index] # get the samples with metagenomics and transcriptomics data that are in the adjacency matrix
     Pheno = MG_T_Ph_filteredSamples[['weight']]
-    # print("\nPhenotype:\n", list(Pheno.columns))
     y = torch.tensor(Pheno.values, dtype=torch.float)
 
     ### METAGENOMIC AND TRANSCRIPTOMIC FEATURES
@@ -70,14 +59,14 @@ def main():
     ### BUILDING THE GRAPH
     edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix, print_tmp=False)
     
-    ## Save to csv
     edge_index_df = pd.DataFrame(edge_index.numpy().T, columns=['source', 'target'])
     # sample_to_index_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/output/sample_to_index_2.csv", index=False)
     # edge_index_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/output/edge_index_2.csv", index=True)
 
-
+    ### GRAPH OBJECT
     data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, y=y, num_nodes=MG_T.shape[0], num_node_features=MG_T.shape[1])
-
+    breakpoint()
+    
     ## Statistics
     print(f'Number of nodes: {data.num_nodes}')
     print(f'Number of edges: {data.num_edges}')
@@ -94,14 +83,10 @@ def main():
     # print(f"Saved data to {self.processed_paths[0]}")
 
 
-    # print("\nedge_index\n", edge_index)
-    # print(edge_index.shape)
-
-    # print("\nedge_attr\n", edge_attr)
-    # print(edge_attr.shape)
     # print("\nGRAPH:\n", data)
+    # print("\nedge_index\n", edge_index)
 
-    print("\nNumber of nodes in the graph:", data.num_nodes)
+    
 
 
     # dataset_try = TUDataset(root='./data/', name='MUTAG')
@@ -213,15 +198,18 @@ def main():
     # model = GCN(hidden_channels=64).to(device)
     print(model)
 
+    # data = Data(x=data.x, y=data.y)
+
     data = data.to(device)
 
-    # Split into training and validation
-    # rng = torch.Generator().manual_seed(0)
-    # train_dataset, validation_dataset = random_split(data, (180, 27), generator=rng)
 
-    # Create dataloader for training and validation
-    # train_loader = DataLoader(train_dataset, batch_size=180)
-    # validation_loader = DataLoader(validation_dataset, batch_size=27)
+    ## Split into training and validation
+    rng = torch.Generator().manual_seed(0)
+    train_dataset, validation_dataset = random_split(data, (132, 57), generator=rng) # 189 nodes
+    # train_dataset, validation_dataset, test_dataset = random_split(dataset, (100, 44, 44), generator=rng)
+
+    train_loader = DataLoader(train_dataset, batch_size=132)
+    # validation_loader = DataLoader(validation_dataset, batch_size=57)
     # test_loader = DataLoader(test_dataset, batch_size=44)
 
 
@@ -229,7 +217,7 @@ def main():
     # mse_loss = F.mse_loss()
     mse_loss = torch.nn.MSELoss()
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2,weight_decay=1e-3) #weight_decay=5e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=5e-4,weight_decay=1e-3) #weight_decay=5e-4)
 
     # Learning rate scheduler
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9999)
@@ -256,9 +244,28 @@ def main():
     # print(out)
 
     for epoch in range(epochs):
+        
         loss = train()
+        
+        
+        # model.train()
+        # for data in train_loader:
+        #     breakpoint()
+        #     out = model(data.x, data.edge_index, batch=data.batch)
+        #     loss = mse_loss(out, data.y.float())
+
+        #     # Gradient step
+        #     optimizer.zero_grad()
+        #     loss.backward()
+        #     optimizer.step()
+
+        #     # # Compute training loss and accuracy
+        #     # train_accuracy += sum((out>0) == data.y).detach().cpu() / len(train_loader.dataset)
+        #     # train_loss += loss.detach().cpu().item() * data.batch_size / len(train_loader.dataset)
+        # scheduler.step()
+
         if epoch % 500 == 0:
-            print(f'Epoch: {epoch:03d}, Loss: {loss:.4f}, Learning rate: {scheduler.get_last_lr()[0]:.1e}') 
+            print(f'Epoch: {epoch:03d}, Loss: {loss:.4f}, Learning rate: {scheduler.get_last_lr()[0]:.1e}')
 
     
     # for epoch in range(epochs):
@@ -290,7 +297,7 @@ def main():
 
     ### EVALUATION
     model.eval()
-    out = model(data.x, edge_index)    
+    out = model(data.x, edge_index)
     # for predicted, actual  in zip(out, data.y): print(f'Predicted: {predicted.item():.4f}, Actual: {actual.item():.4f}, Difference: {abs(predicted.item()-actual.item()):.4f}')
     print("Avg difference: \n",np.mean(np.abs(out.detach().numpy() - data.y.detach().numpy())))
 
