@@ -27,13 +27,12 @@ from similarity_graph_utilities import get_edges_from_adjacency, plot_feature_co
 # Things to try: Loss functions (MAE; MSE); Optimizers; Layers
 
 
-
 def main():
     adj_matrix_path = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_hc_180PCs_20-40_edges.csv"
     adjacency_matrix = pd.read_csv(adj_matrix_path, header=0, index_col=0)
     file_name = os.path.basename(adj_matrix_path)
     
-    print("\nUsing adjacency matrix: ", file_name)    
+    print("\nUsing adjacency matrix: ", file_name)
     # print("Number of edges:", np.sum(adjacency_matrix.values > 0))
 
     ### PHENOTYPE
@@ -46,13 +45,17 @@ def main():
     Pheno = MG_T_Ph_filteredSamples[['weight']]
     y = torch.tensor(Pheno.values, dtype=torch.float)
 
+
     ### METAGENOMIC AND TRANSCRIPTOMIC FEATURES
     # MG_T = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/scaled_input.csv", header=0, index_col=0)
     # MG_T_filteredSamples = MG_T_Ph.loc[adjacency_matrix.index]
     # MG_T = MG_T_filteredSamples
     
-    MG_T = MG_T_Ph_filteredSamples.loc[:, ~MG_T_Ph_filteredSamples.columns.isin(['size', 'weight'])]
-    # print(MG_T)
+    MG = MG_T_Ph_filteredSamples.loc[:, MG_T_Ph_filteredSamples.columns.str.startswith('MAG')]
+    T = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_selected_features.csv", header=0, index_col=0)
+
+    MG_T = pd.concat([MG, T], axis=1)
+
     x = torch.tensor(MG_T.values, dtype=torch.float)
 
 
@@ -65,7 +68,6 @@ def main():
 
     ### GRAPH OBJECT
     data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, y=y, num_nodes=MG_T.shape[0], num_node_features=MG_T.shape[1])
-    breakpoint()
     
     ## Statistics
     print(f'Number of nodes: {data.num_nodes}')
@@ -194,7 +196,7 @@ def main():
             return x #F.log_softmax(x, dim=1)
         
     device = 'cpu'
-    model = GCN(num_node_features=data.num_node_features, state_dim=24).to(device) #state_dim=16
+    model = GCN(num_node_features=data.num_node_features, state_dim=64).to(device) #state_dim=16
     # model = GCN(hidden_channels=64).to(device)
     print(model)
 
@@ -203,14 +205,14 @@ def main():
     data = data.to(device)
 
 
-    ## Split into training and validation
-    rng = torch.Generator().manual_seed(0)
-    train_dataset, validation_dataset = random_split(data, (132, 57), generator=rng) # 189 nodes
-    # train_dataset, validation_dataset, test_dataset = random_split(dataset, (100, 44, 44), generator=rng)
+    # ## Split into training and validation
+    # rng = torch.Generator().manual_seed(0)
+    # train_dataset, validation_dataset = random_split(data, (132, 57), generator=rng) # 189 nodes
+    # # train_dataset, validation_dataset, test_dataset = random_split(dataset, (100, 44, 44), generator=rng)
 
-    train_loader = DataLoader(train_dataset, batch_size=132)
-    # validation_loader = DataLoader(validation_dataset, batch_size=57)
-    # test_loader = DataLoader(test_dataset, batch_size=44)
+    # train_loader = DataLoader(train_dataset, batch_size=132)
+    # # validation_loader = DataLoader(validation_dataset, batch_size=57)
+    # # test_loader = DataLoader(test_dataset, batch_size=44)
 
 
     # Loss function

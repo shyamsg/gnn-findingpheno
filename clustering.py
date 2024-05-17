@@ -1,3 +1,9 @@
+"""
+Clustering based on gene distances
+Output a pcs file with the selected points from each cluster
+"""
+
+
 import plotly.express as px
 import pandas as pd
 from sklearn.cluster import KMeans
@@ -32,8 +38,6 @@ def main():
     sample_pcs = sample_pcs[sample_pcs.index.isin(samples_with_MG_T_Ph_data)]
 
     print(sample_pcs.shape)
-
-    breakpoint()
 
     N_PCs = 350
     sample_pcs = sample_pcs.iloc[:,0:N_PCs]

@@ -38,8 +38,6 @@ def get_similarity_matrix(sample_pcs, n_samples, print_tmp=False):
     # pairwise_dist_with_indexes = dist_matrix[indexes]
 
 
-
-
     # Normalize the distance matrix on the maximum distance
     max_distance=np.max(dist_matrix)
     if print_tmp: print("\nmax distance between any 2 points: ", max_distance)
@@ -193,22 +191,17 @@ def main():
     sample_pcs = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)
     # print(sample_pcs)
 
+    # removing a specific sample
     # row_F400 = sample_pcs.loc["F400"]
     # sample_pcs = sample_pcs.drop("F400")
 
 
 
     ### FILTERING for MG T data availability
-    ## Keep only the samples for which we have transcriptomics and metagenomics data. 'final_input' is the file that contains all transcriptomics and metagenomics data for the samples we have such data for.
     MG_T_Ph = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
     # get the IDs of the sample with metagenomics and transcriptomics data
     samples_with_MG_T_Ph_data = list(MG_T_Ph.index)
-    # print(samples_with_MG_T_Ph_data)
-
-    # print(sample_pcs.index)
-    # print(len(sample_pcs.index))
-
-    # FILTERING for MG T data availability : keep only the samples (rows of sample_pcs) whose index is in samples_with_MG_T_Ph_data (samples with metagenomics and transcriptomics data)
+    ## Keep only the samples for which we have transcriptomics and metagenomics data. 'final_input' is the file that contains all transcriptomics and metagenomics data for the samples we have such data for.
     sample_pcs = sample_pcs[sample_pcs.index.isin(samples_with_MG_T_Ph_data)]
 
     # print("\n\n\n", sample_pcs.index)
