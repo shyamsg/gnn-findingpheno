@@ -5,10 +5,12 @@ import numpy as np
 from scipy.spatial import distance
 from scipy.spatial.distance import pdist
 from sklearn.preprocessing import StandardScaler
+# from tensorflow.keras.models import Model
+# from tensorflow.keras.layers import Input, Dense
 
 SELECTION_METHOD = "Variance" # "Variance", "Autoencoder", "PCA"
 
-N_features_to_use = 100
+N_features_to_use = 50
 
 def main():
 
@@ -49,6 +51,40 @@ def main():
         T_var_selected_scaled = T_scaled_df[T_scaled_df.var(axis=0).nlargest(N_features_to_use).index]
         T_var_selected_scaled.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features_var-selected.csv", index=True, sep=',')
 
+    # if SELECTION_METHOD == "Autoencoder":
+        
+    #     # Define the dimensions of the input data
+    #     input_dim = T_unfiltered.shape[1]
+
+    #     # Define the dimensions of the encoded representation
+    #     ENCODING_DIM = 32
+
+    #     # Define the input layer
+    #     input_layer = Input(shape=(input_dim,))
+
+    #     # Define the encoder layers
+    #     encoder = Dense(ENCODING_DIM, activation='relu')(input_layer)
+
+    #     # Define the decoder layers
+    #     decoder = Dense(input_dim, activation='sigmoid')(encoder)
+
+    #     # Define the autoencoder model
+    #     autoencoder = Model(inputs=input_layer, outputs=decoder)
+
+    #     # Compile the autoencoder model
+    #     autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
+
+    #     # Train the autoencoder model
+    #     autoencoder.fit(T_unfiltered, T_unfiltered, epochs=10, batch_size=32, shuffle=True)
+
+    #     # Get the encoded features
+    #     encoded_features = encoder.predict(T_unfiltered)
+
+    #     # Convert the encoded features to a DataFrame
+    #     encoded_features_df = pd.DataFrame(encoded_features, index=T_unfiltered.index)
+
+    #     # Save the encoded features to a CSV file
+    #     encoded_features_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features_encoded.csv", index=True, sep=',')
 
 
 if __name__ == "__main__":
