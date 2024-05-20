@@ -4,12 +4,14 @@ import pandas as pd
 from torch_geometric.nn import GCNConv
 import torch
 import torch.nn.functional as F
-from torch_geometric.datasets import Planetoid, TUDataset # to check the types of dataset variables
+from torch_geometric.datasets import Planetoid, TUDataset
 from torch.utils.data import random_split
 from torch_geometric.loader import DataLoader
 import os
+from sklearn.model_selection import train_test_split
 
 from similarity_graph_utilities import get_edges_from_adjacency, plot_feature_correlation
+import matplotlib.pyplot as plt
 
 
 """
@@ -52,11 +54,13 @@ def main():
     # MG_T = MG_T_filteredSamples
     
     MG = MG_T_Ph_filteredSamples.loc[:, MG_T_Ph_filteredSamples.columns.str.startswith('MAG')]
-    T = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_selected_features.csv", header=0, index_col=0)
+    T = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_selected_features.csv", header=0, index_col=0) # T features selected with Lasso
 
     MG_T = pd.concat([MG, T], axis=1)
 
-    x = torch.tensor(MG_T.values, dtype=torch.float)
+    X = torch.tensor(MG_T.values, dtype=torch.float)
+
+    print("X shape: ", X.shape)
 
 
     ### BUILDING THE GRAPH
@@ -66,8 +70,32 @@ def main():
     # sample_to_index_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/output/sample_to_index_2.csv", index=False)
     # edge_index_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/output/edge_index_2.csv", index=True)
 
+    num_nodes=MG_T.shape[0]
+    num_node_features=MG_T.shape[1]
+
+    ### Split into training and validation
+    # rng = torch.Generator().manual_seed(0)
+    # train_dataset, validation_dataset = random_split(data, (132, 57), generator=rng) # 189 nodes
+    # # train_dataset, validation_dataset, test_dataset = random_split(dataset, (100, 44, 44), generator=rng)
+
+    # train_loader = DataLoader(train_dataset, batch_size=132)
+    # # validation_loader = DataLoader(validation_dataset, batch_size=57)
+    # # test_loader = DataLoader(test_dataset, batch_size=44)
+
+
+    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)    
+    X_train, X_val, y_train, y_val, train_idx, val_idx = train_test_split(X, y, np.arange(num_nodes), test_size=0.05, random_state=42)
+    print("X_train shape: ", X_train.shape)
+    print("X_val shape: ", X_val.shape)
+    # Create masks for training and validation sets
+    train_mask = np.zeros(num_nodes, dtype=bool)
+    val_mask = np.zeros(num_nodes, dtype=bool)
+    train_mask[train_idx] = True
+    val_mask[val_idx] = True
+
+
     ### GRAPH OBJECT
-    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, y=y, num_nodes=MG_T.shape[0], num_node_features=MG_T.shape[1])
+    data = Data(x=X, edge_index=edge_index, edge_attr=edge_attr, y=y, num_nodes=num_nodes, num_node_features=num_node_features)
     
     ## Statistics
     print(f'Number of nodes: {data.num_nodes}')
@@ -84,12 +112,8 @@ def main():
     # torch.save(self.collate([data]), self.processed_paths[0])
     # print(f"Saved data to {self.processed_paths[0]}")
 
-
     # print("\nGRAPH:\n", data)
     # print("\nedge_index\n", edge_index)
-
-    
-
 
     # dataset_try = TUDataset(root='./data/', name='MUTAG')
     # data_try = dataset_try[0]
@@ -118,7 +142,7 @@ def main():
     class GCN_deep(torch.nn.Module):
         def __init__(self, num_node_features, state_dim):
             super(GCN_deep, self).__init__()
-            torch.manual_seed(1234567)
+            torch.manual_seed(12)
 
             self.num_node_features = num_node_features
             self.state_dim = state_dim
@@ -196,7 +220,7 @@ def main():
             return x #F.log_softmax(x, dim=1)
         
     device = 'cpu'
-    model = GCN(num_node_features=data.num_node_features, state_dim=64).to(device) #state_dim=16
+    model = GCN_deep(num_node_features=data.num_node_features, state_dim=64).to(device) #state_dim=16
     # model = GCN(hidden_channels=64).to(device)
     print(model)
 
@@ -205,35 +229,35 @@ def main():
     data = data.to(device)
 
 
-    # ## Split into training and validation
-    # rng = torch.Generator().manual_seed(0)
-    # train_dataset, validation_dataset = random_split(data, (132, 57), generator=rng) # 189 nodes
-    # # train_dataset, validation_dataset, test_dataset = random_split(dataset, (100, 44, 44), generator=rng)
-
-    # train_loader = DataLoader(train_dataset, batch_size=132)
-    # # validation_loader = DataLoader(validation_dataset, batch_size=57)
-    # # test_loader = DataLoader(test_dataset, batch_size=44)
-
-
     # Loss function
     # mse_loss = F.mse_loss()
     mse_loss = torch.nn.MSELoss()
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=5e-4,weight_decay=1e-3) #weight_decay=5e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=2e-3,weight_decay=1e-3) #weight_decay=5e-4)
 
     # Learning rate scheduler
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9999)
 
 
-    def train():
+    def train(losses_train, losses_val):
       model.train()
       optimizer.zero_grad()  # Clear gradients.
       out = model(data.x, data.edge_index)  # Perform a single forward pass.
-      loss = mse_loss(out, data.y)  # Compute the loss solely based on the training nodes.
+    #   loss = mse_loss(out, data.y)
+    #   loss = mse_loss(out.squeeze(), data.y.squeeze())
+      
+      loss = mse_loss(out[train_mask], data.y[train_mask])
+      losses_train.append(loss.item())
+
+      ## Only compute gradients for nodes in the training set
       loss.backward()  # Derive gradients.
       optimizer.step()  # Update parameters based on gradients.
       scheduler.step() # Update the learning rate.
-      return loss
+
+      loss_val = mse_loss(out[val_mask], data.y[val_mask])
+      losses_val.append(loss_val.item())
+
+      return loss, losses_train, losses_val
     
     
     
@@ -245,9 +269,11 @@ def main():
     # out = model(data)
     # print(out)
 
+    losses_train, losses_val = [], []
+
     for epoch in range(epochs):
         
-        loss = train()
+        loss, losses_train, losses_val = train(losses_train, losses_val)
         
         
         # model.train()
@@ -267,7 +293,7 @@ def main():
         # scheduler.step()
 
         if epoch % 500 == 0:
-            print(f'Epoch: {epoch:03d}, Loss: {loss:.4f}, Learning rate: {scheduler.get_last_lr()[0]:.1e}')
+            print(f'Epoch: {epoch:03d}, Learning rate: {scheduler.get_last_lr()[0]:.1e}, Train loss: {loss:.4f}, Validation loss: {losses_val[-1]:.4f}')
 
     
     # for epoch in range(epochs):
@@ -299,9 +325,22 @@ def main():
 
     ### EVALUATION
     model.eval()
-    out = model(data.x, edge_index)
+    out = model(data.x, data.edge_index)
+    
     # for predicted, actual  in zip(out, data.y): print(f'Predicted: {predicted.item():.4f}, Actual: {actual.item():.4f}, Difference: {abs(predicted.item()-actual.item()):.4f}')
     print("Avg difference: \n",np.mean(np.abs(out.detach().numpy() - data.y.detach().numpy())))
+
+
+    # Plotting the loss over epochs
+    plt.plot(range(epochs), losses_train, label='Training loss')
+    plt.plot(range(epochs), losses_val, label='Validation loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Training and Validation Loss')
+    plt.ylim(0, 4)  # Set the y-axis limits
+    plt.legend()
+    plt.show()
+
 
     breakpoint()
 

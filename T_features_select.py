@@ -104,7 +104,7 @@ def main():
         
         
         # Create a Lasso regression object with a high alpha value
-        lasso = Lasso(alpha=0.10, max_iter=1000)
+        lasso = Lasso(alpha=0.05, max_iter=1000)
 
         # Fit the Lasso regression model to the data
         lasso.fit(X, y)
@@ -120,7 +120,7 @@ def main():
 
         # Coefficients of the selected features
         coefficients = lasso.coef_[selection.get_support()]
-        print("Coefficients:", coefficients)
+        # print("Coefficients:", coefficients)
 
         # Save the selected features to a CSV file
         selected_features_df = T_unfiltered[selected_features].sort_index()
