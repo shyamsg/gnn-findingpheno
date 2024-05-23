@@ -1,3 +1,8 @@
+"""
+Select features from the transcriptome data using different feature selection methods.
+For now, we select the Transcriptome features independently from the Metagenome features.
+"""
+
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -12,7 +17,8 @@ from sklearn.feature_selection import SelectFromModel
 
 SELECTION_METHOD = "Lasso" # "Variance", "Autoencoder", "PCA", "Lasso"
 
-N_features_to_use = 50
+N_FEATURES_TO_USE = 50 # Only used for the Variance method
+ALPHA = 0.1 # Only used for the Lasso method
 
 def main():
 
@@ -50,16 +56,20 @@ def main():
         T_scaled_df = pd.DataFrame(T_scaled, columns=T_unfiltered.columns, index=T_unfiltered.index)
 
         # Save the scaled features to a CSV file
-        T_scaled_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features_scaled.csv", index=True, sep=',')
+        T_scaled_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features/T_features_scaled.csv", index=True, sep=',')
 
-        # Select the top N_features_to_use with the highest variance
-        T_var_selected = T_unfiltered[T_unfiltered.var(axis=0).nlargest(N_features_to_use).index]
-        T_var_selected.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features_var-selected.csv", index=True, sep=',')
+        # Select the top N_FEATURES_TO_USE with the highest variance
+        T_var_selected = T_unfiltered[T_unfiltered.var(axis=0).nlargest(N_FEATURES_TO_USE).index]
+        file_name = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
+        T_var_selected.to_csv(file_name, index=True, sep=',')
 
-        # Select the top N_features_to_use with the highest variance after scaling/normalizing
-        T_var_selected_scaled = T_scaled_df[T_scaled_df.var(axis=0).nlargest(N_features_to_use).index]
+        # Select the top N_FEATURES_TO_USE with the highest variance after scaling/normalizing
+        T_var_selected_scaled = T_scaled_df[T_scaled_df.var(axis=0).nlargest(N_FEATURES_TO_USE).index]
+        file_name = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features/T_selected_features_scaled_" + SELECTION_METHOD + ".csv"
+        T_var_selected_scaled.to_csv(file_name, index=True, sep=',')
+
         
-        T_var_selected_scaled.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features_var-selected.csv", index=True, sep=',')
+    # if SELECTION_METHOD == "PCA":
 
     # if SELECTION_METHOD == "Autoencoder":
         
@@ -94,7 +104,7 @@ def main():
     #     encoded_features_df = pd.DataFrame(encoded_features, index=T_unfiltered.index)
 
     #     # Save the encoded features to a CSV file
-    #     encoded_features_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features_encoded.csv", index=True, sep=',')
+    #     encoded_features_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features/T_features_encoded.csv", index=True, sep=',')
 
 
     if SELECTION_METHOD == "Lasso":
@@ -104,7 +114,7 @@ def main():
         
         
         # Create a Lasso regression object with a high alpha value
-        lasso = Lasso(alpha=0.05, max_iter=1000)
+        lasso = Lasso(alpha=ALPHA, max_iter=1000)
 
         # Fit the Lasso regression model to the data
         lasso.fit(X, y)
@@ -120,12 +130,12 @@ def main():
 
         # Coefficients of the selected features
         coefficients = lasso.coef_[selection.get_support()]
-        # print("Coefficients:", coefficients)
+        print("Coefficients:", coefficients)
 
         # Save the selected features to a CSV file
         selected_features_df = T_unfiltered[selected_features].sort_index()
-        selected_features_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_selected_features.csv", index=True, sep=',')
-
+        file_name = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
+        selected_features_df.to_csv(file_name, index=True, sep=',')
     
 
 if __name__ == "__main__":

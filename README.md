@@ -7,4 +7,7 @@ Colab away [![Open In Colab](https://colab.research.google.com/assets/colab-badg
 
 
 Pipeline:
-clustering -> get_Adjacency_matrix_from_GWAS-based_PCs -> GCN_nodePred_similarityMatrix
+
+(1a) select samples (clustering.py) -> 
+(1b) select Trascriptome features (T-features_select.py) ->   (2) get_Adjacency_matrix_from_GWAS-based_PCs.py -> GCN_nodePred_similarityMatrix.py
+
