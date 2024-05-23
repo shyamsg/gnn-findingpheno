@@ -35,7 +35,7 @@ from torch.nn.functional import elu
 
 
 def main():
-    adj_matrix_path = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_hc_180PCs_10-17_edges.csv"
+    adj_matrix_path = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_hc_180PCs_10-30_edges.csv"
     adjacency_matrix = pd.read_csv(adj_matrix_path, header=0, index_col=0)
     file_name = os.path.basename(adj_matrix_path)
     

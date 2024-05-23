@@ -84,7 +84,7 @@ def plot_sample_similarity_distribution(upper_diag_vector, num_bins):
     return
 
 
-def select_edges(sample_similarity_matrix, cutoff, min_edges=12, max_edges=25, print_tmp=False):
+def select_edges(sample_similarity_matrix, indexes, cluster_id, cutoff, min_edges=12, max_edges=25, print_tmp=False):
     """
     Filter the similarity edges based on 3 criteria:
     1 - Similarity value above cutoff
@@ -100,9 +100,49 @@ def select_edges(sample_similarity_matrix, cutoff, min_edges=12, max_edges=25, p
     Returns:
     - filtered_similarity_matrix
     """
-    
-    # TODO: FILTER EDGES BASED ON WITHIN-CLUSTER CONNECTIVITY LIMIT
-    
+        
+    ### ADDED: PRE-FILTER within CLUSTERs (FILTER EDGES BASED ON WITHIN-CLUSTER CONNECTIVITY LIMIT)
+    indexes_cluster_only = [index.split("_")[1] for index in indexes]
+
+    unique_cluster_ids, counts = np.unique(indexes_cluster_only, return_counts=True)
+    clusters_to_reduce = unique_cluster_ids[np.where(counts > 10)].astype(int)
+    if print_tmp: print("Clusters to reduce: ", clusters_to_reduce)
+
+    MAX_EDGES_WITHIN_CLUSTERS = 5
+
+    for id_cluster in clusters_to_reduce:
+        cluster_indices = np.where(cluster_id == id_cluster)[0]
+        cluster = sample_similarity_matrix[cluster_indices][:, cluster_indices]
+
+        if print_tmp: 
+            print("\nCluster ", id_cluster)
+            print("BEFORE WITHIN-CLUSTER FILTERING")
+            print("Total number of edges for the given cutoff value:", sum(sum(cluster>0)))
+            print("number of within-cluster edges for each node in the cluster:\n", np.sum(cluster>cutoff, axis=1))
+
+        # number of edges above the cutoff
+
+        # Find the indices of the N highest values in each row
+        top_indices = np.argsort(cluster, axis=1)[:, -MAX_EDGES_WITHIN_CLUSTERS:]
+        # Create a mask to set the top N values to 1 and others to 0
+        rows = np.arange(cluster.shape[0])[:, None]
+        m_cluster = np.zeros_like(cluster)
+        m_cluster[rows, top_indices] = 1
+        m_cluster[top_indices, rows] = 1 # ! Added this line to ensure symmetry (if you add an edge from i to j, also add from j to i)
+        m_cluster = m_cluster.astype(float)
+        # print(np.allclose(m3,m3.T)) # check that the matrix is symmetric
+
+        for num_r,i in enumerate(cluster_indices):
+            for num_c,j in enumerate(cluster_indices): 
+                sample_similarity_matrix[i,j] = m_cluster[num_r,num_c] # !!! we update the sample_similarity_matrix with the cluster filter
+
+        if print_tmp:
+            print("AFTER WITHIN-CLUSTER FILTERING")
+            print("Total number of edges for the given cutoff value:", sum(sum(m_cluster>0)))
+            print("number of within-cluster edges for each node in the cluster:\n",np.sum(m_cluster, axis=1).astype(int))     
+
+
+
     ##### Three matrices to merge:
 
     #### 1: Keep the edges above the cutoff
@@ -133,8 +173,8 @@ def select_edges(sample_similarity_matrix, cutoff, min_edges=12, max_edges=25, p
     # m2[max_indices, np.arange(m2.shape[1])] = 1 # ! Added this line to ensure symmetry (if you add an edge from i to j, also add from j to i)
     # print(np.allclose(m2,m2.T)) # check that the matrix is symmetric
 
-
     if print_tmp: print("\nm2:\n", m2)
+
 
     #### 3: Take the top N edges for each node (maximum number of edges for each node)
     # Find the indices of the N highest values in each row
@@ -161,6 +201,7 @@ def select_edges(sample_similarity_matrix, cutoff, min_edges=12, max_edges=25, p
     if print_tmp: print("\nfinal matrix\n",filtered_similarity_matrix)
     
     print("Number of edges: ", np.sum(filtered_similarity_matrix))
+
 
     return filtered_similarity_matrix
 
@@ -219,8 +260,9 @@ def main():
     sample_pcs = sample_pcs.iloc[:,0:N_PCs]
     # sample_pcs = pd.concat([sample_pcs.iloc[:,0:N_PCs], sample_pcs["cluster_id"]], axis=1) # we add the cluster_id to the PCs, to limit the within-cluster connectivity
     
-    sample_pcs.index = sample_pcs.index + "_" + cluster_id.astype(str) # we add the cluster_id to the indexes of the samples
     indexes = sample_pcs.index
+    sample_pcs.index = sample_pcs.index + "_" + cluster_id.astype(str) # we add the cluster_id to the indexes of the samples
+    indexes_with_clusters = sample_pcs.index
 
     sample_similarity_matrix = get_similarity_matrix(sample_pcs, n_samples=N_SAMPLES, print_tmp=False)
     print("\nSample_similarity_matrix:\n", sample_similarity_matrix)
@@ -242,36 +284,37 @@ def main():
 
                 print(str(MIN_EDGES), " - ", str(MAX_EDGES))
 
-                adjacency_matrix = select_edges(sample_similarity_matrix, cutoff=CUTOFF, min_edges=MIN_EDGES, max_edges=MAX_EDGES, print_tmp=False)
+                adjacency_matrix = select_edges(sample_similarity_matrix, indexes_with_clusters, cluster_id, cutoff=CUTOFF, min_edges=MIN_EDGES, max_edges=MAX_EDGES, print_tmp=False)
                 # print("\nFiltered similarity matrix:\n", adjacency_matrix)
                 
                 row_sums = np.sum(adjacency_matrix, axis=1)
                 # print("\nNumber of edges per each node after filtering:\n", row_sums)
                 
-
-                ### KEEP ONLY 20% OF THE EDGES IN THE CLUSTER 77, which is the largest cluster, composed of 54 highly similar (-> high connected) samples
-                # Extract the submatrix
-                cluster77_indices = np.where(cluster_id == 77)[0]
-                cluster77 = adjacency_matrix[cluster77_indices][:, cluster77_indices]    
-                # Find the indices of all 1s in the submatrix
-                ones_indices = np.argwhere(cluster77 == 1)
+                # ### KEEP ONLY N% OF THE EDGES IN THE CLUSTER 77, which is the largest cluster, composed of 54 highly similar (-> high connected) samples
+                # ID_CLUSTER = 77
+                # # Extract the submatrix
+                # cluster_indices = np.where(cluster_id == ID_CLUSTER)[0]
+                # cluster = adjacency_matrix[cluster_indices][:, cluster_indices]    
+                # # Find the indices of all 1s in the submatrix
+                # ones_indices = np.argwhere(cluster == 1)
     
-                # Calculate the number of 1s to change (20% of the total 1s)
-                num_ones = len(ones_indices)
-                num_to_change = int(np.ceil(0.8 * num_ones))
+                # # Calculate the number of 1s to change (20% of the total 1s)
+                # num_ones = len(ones_indices)
+                # PERCENTAGE_TO_REMOVE = 0.4
+                # num_to_change = int(np.ceil(PERCENTAGE_TO_REMOVE * num_ones)) # we REMOVE % of the edges
     
-                # Randomly select indices to change
-                np.random.seed(0) 
-                indices_to_change = ones_indices[np.random.choice(num_ones, num_to_change, replace=False)]
+                # # Randomly select indices to change
+                # np.random.seed(0) 
+                # indices_to_change = ones_indices[np.random.choice(num_ones, num_to_change, replace=False)]
     
-                # Set the selected indices to 0 in the submatrix
-                for index in indices_to_change: cluster77[tuple(index)] = 0
+                # # Set the selected indices to 0 in the submatrix
+                # for index in indices_to_change: cluster[tuple(index)] = 0
     
-                # Update the original matrix with the modified submatrix
+                # # Update the original matrix with the modified submatrix
                 
-                for num_r,i in enumerate(cluster77_indices): 
-                    for num_c,j in enumerate(cluster77_indices): 
-                        adjacency_matrix[i,j] = cluster77[num_r,num_c]# we update the adjacency matrix with the modified cluster77
+                # for num_r,i in enumerate(cluster_indices):
+                #     for num_c,j in enumerate(cluster_indices):
+                #         adjacency_matrix[i,j] = cluster[num_r,num_c]# we update the adjacency matrix with the modified cluster
 
 
                 # Save adjacency_matrix to a CSV file
