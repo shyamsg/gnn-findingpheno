@@ -128,11 +128,11 @@ def main():
         print("Selected features:", selected_features)
         print("Number of selected features:", len(selected_features))
 
-        # Coefficients of the selected features
+        ## Coefficients of the selected features
         coefficients = lasso.coef_[selection.get_support()]
-        print("Coefficients:", coefficients)
+        # print("Coefficients:", coefficients)
 
-        # Save the selected features to a CSV file
+        # Save the matrix of the selected features to a CSV file
         selected_features_df = T_unfiltered[selected_features].sort_index()
         file_name = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
         selected_features_df.to_csv(file_name, index=True, sep=',')
