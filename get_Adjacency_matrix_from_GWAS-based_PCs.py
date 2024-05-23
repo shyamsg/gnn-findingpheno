@@ -101,12 +101,15 @@ def select_edges(sample_similarity_matrix, cutoff, min_edges=12, max_edges=25, p
     - filtered_similarity_matrix
     """
     
+    # TODO: FILTER EDGES BASED ON WITHIN-CLUSTER CONNECTIVITY LIMIT
+    
     ##### Three matrices to merge:
 
     #### 1: Keep the edges above the cutoff
     m1 = (sample_similarity_matrix>cutoff).astype(int) # numpy.ndarray, (361,361)
     if print_tmp: print("m1:\n", m1)
 
+    
     #### 2: Keep the top connection for each node
 
     # Find the indices of the N highest values in each row
@@ -210,13 +213,14 @@ def main():
     N_SAMPLES= sample_pcs.shape[0]
     # print(N_SAMPLES) # 207 after filtering, 361 before filtering (now we added cluster-filtering, so the number of samples is different from the one in the R script)
 
-    indexes = sample_pcs.index
-
-
-    # We select the first N_PCs features, N_PCs = 50 account for ~50% variability (see R file for the PC analysis)
+    cluster_id = sample_pcs["cluster_id"]
+    
+    # We select the first N_PCs features. N_PCs = 50 account for ~50% variability (see R file for the PC analysis)
     sample_pcs = sample_pcs.iloc[:,0:N_PCs]
-    #sample_pcs = sample_pcs.iloc[0:4,0:3] # for DEBUG
-
+    # sample_pcs = pd.concat([sample_pcs.iloc[:,0:N_PCs], sample_pcs["cluster_id"]], axis=1) # we add the cluster_id to the PCs, to limit the within-cluster connectivity
+    
+    sample_pcs.index = sample_pcs.index + "_" + cluster_id.astype(str) # we add the cluster_id to the indexes of the samples
+    indexes = sample_pcs.index
 
     sample_similarity_matrix = get_similarity_matrix(sample_pcs, n_samples=N_SAMPLES, print_tmp=False)
     print("\nSample_similarity_matrix:\n", sample_similarity_matrix)
@@ -227,7 +231,7 @@ def main():
     # Extract the upper diagonal elements into a vector
     upper_diag_vector = sample_similarity_matrix[np.triu_indices(rows, k=1)]
     analyze_similarity(upper_diag_vector) # UNCOMMENT to plot a histogram of similarity-based edges distribution in order to choose a cutoff value
-    CUTOFF = 0.60 # we choose a cutoff of 0.6
+    CUTOFF = 0.40 # we choose a cutoff of 0.6
 
 
     print("cutoff matrix:\n",sum(sample_similarity_matrix > CUTOFF)) # shape will be (n_samples,)
@@ -243,12 +247,39 @@ def main():
                 
                 row_sums = np.sum(adjacency_matrix, axis=1)
                 # print("\nNumber of edges per each node after filtering:\n", row_sums)
+                
+
+                ### KEEP ONLY 20% OF THE EDGES IN THE CLUSTER 77, which is the largest cluster, composed of 54 highly similar (-> high connected) samples
+                # Extract the submatrix
+                cluster77_indices = np.where(cluster_id == 77)[0]
+                cluster77 = adjacency_matrix[cluster77_indices][:, cluster77_indices]    
+                # Find the indices of all 1s in the submatrix
+                ones_indices = np.argwhere(cluster77 == 1)
+    
+                # Calculate the number of 1s to change (20% of the total 1s)
+                num_ones = len(ones_indices)
+                num_to_change = int(np.ceil(0.8 * num_ones))
+    
+                # Randomly select indices to change
+                np.random.seed(0) 
+                indices_to_change = ones_indices[np.random.choice(num_ones, num_to_change, replace=False)]
+    
+                # Set the selected indices to 0 in the submatrix
+                for index in indices_to_change: cluster77[tuple(index)] = 0
+    
+                # Update the original matrix with the modified submatrix
+                
+                for num_r,i in enumerate(cluster77_indices): 
+                    for num_c,j in enumerate(cluster77_indices): 
+                        adjacency_matrix[i,j] = cluster77[num_r,num_c]# we update the adjacency matrix with the modified cluster77
+
 
                 # Save adjacency_matrix to a CSV file
-                csv_ending = str("hc_") + str(N_PCs) + "PCs_" + str(MIN_EDGES) + "-"+ str(MAX_EDGES) + "_edges"
                 adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes, columns=indexes) # we use the indexes of the samples to set the row and column names
+                csv_ending = str("hc_") + str(N_PCs) + "PCs_" + str(MIN_EDGES) + "-"+ str(MAX_EDGES) + "_edges"
                 adjacency_matrix_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_"+ csv_ending +".csv", index=True, sep=',')
                 # print("\nFinal Adjacency_matrix:\n", adjacency_matrix_df)
+
 
                 # plot the graph
                 edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix_df, print_tmp=False)

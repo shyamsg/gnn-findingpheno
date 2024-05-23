@@ -15,7 +15,7 @@ from scipy.spatial.distance import pdist
 
 
 CLUSTERING_METHOS = "Hierarchical" # "K-means", "Hierarchical", "DBSCAN
-MAX_POINTS_SELECTED_PER_CLUSTER = 40 # Should be >1
+MAX_POINTS_SELECTED_PER_CLUSTER = 70 # Should be >1
 
 
 def plot_dendrogram(Z, title="Hierarchical Clustering Dendrogram"):
@@ -133,6 +133,8 @@ def main():
         print("Number of points in each cluster:\n", cluster_counts) # Number of points in each cluster
         print("Number of clusters: ", len(cluster_counts))
         
+
+        sample_pcs_d['cluster_id'] = clusters
         sample_pcs_d.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", index=True, sep=',')
 
         # We can repeat this process iteratively to further reduce the number of points. We get to a point where each cluster contains exactly 1 point except for one cluster, which contains the remaining points. We keep only one point for this cluster. Then repeat.
