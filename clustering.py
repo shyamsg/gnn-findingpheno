@@ -15,7 +15,7 @@ from scipy.spatial.distance import pdist
 
 
 CLUSTERING_METHOS = "Hierarchical" # "K-means", "Hierarchical", "DBSCAN
-MAX_POINTS_SELECTED_PER_CLUSTER = 70 # Should be >1
+MAX_POINTS_SELECTED_PER_CLUSTER = 40 # Should be >1
 
 
 def plot_dendrogram(Z, title="Hierarchical Clustering Dendrogram"):
@@ -27,19 +27,24 @@ def plot_dendrogram(Z, title="Hierarchical Clustering Dendrogram"):
     plt.show()
 
 
-def main():
+def main():    
 
     sample_pcs = pd.read_excel("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)    
     # sample_pcs = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)
 
     # get the IDs of the sample with metagenomics and transcriptomics data
-    samples_with_MG_T_Ph_data = list((pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)).index)
+    # NOW WE SEPARATELY PROCESS MG and T! samples_with_MG_T_Ph_data = list((pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)).index)
+    T_samples = list((pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/HoloFish_HostRNA_normalised_GeneCounts_230117.csv", header=0, index_col=0)).index)
+    MG_samples = list((pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/HoloFish_MetaG_MeanCoverage_20221114.csv", header=0, index_col=0)).index)
 
-    sample_pcs = sample_pcs[sample_pcs.index.isin(samples_with_MG_T_Ph_data)]
+    sample_pcs = sample_pcs[sample_pcs.index.isin(T_samples) & sample_pcs.index.isin(MG_samples)]
 
     print(sample_pcs.shape)
 
-    N_PCs = 350
+
+
+    N_PCs = 360 # We have more PCs than samples PCA was run on the original 361 samples (all samples with GWAS data)
+
     sample_pcs = sample_pcs.iloc[:,0:N_PCs]
 
     # sample_pcs = sample_pcs.iloc[0:20, :]
@@ -139,7 +144,7 @@ def main():
 
         # We can repeat this process iteratively to further reduce the number of points. We get to a point where each cluster contains exactly 1 point except for one cluster, which contains the remaining points. We keep only one point for this cluster. Then repeat.
 
-        print(sample_pcs_d.shape)
+        print("Final shape:", sample_pcs_d.shape)
 
     # TODO DBSCAN
     # if CLUSTERING_METHOS == "DBSCAN":

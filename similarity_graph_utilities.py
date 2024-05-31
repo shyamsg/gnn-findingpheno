@@ -110,7 +110,7 @@ def plot_gr(adj=None, edges= None, sample_to_index=None, print_stats=False, csv_
 
     # Draw the graph with node labels
     plt.figure(figsize=(10, 8))
-    nx.draw(graph, with_labels=True, node_size=20, node_color='skyblue', edge_color="black", font_size=5, font_color='red')#, labels= sample_names)
+    nx.draw(graph, with_labels=True, node_size=20, node_color='skyblue', edge_color="black", font_size=8, font_color='red')#, labels= sample_names)
     plt.title('Graph of Samples with Real Sample Names')
     if csv_ending is not None: plt.text(0.5, 1.05, csv_ending, horizontalalignment='center', fontsize=12, transform=plt.gca().transAxes)
     # plt.show()
@@ -119,7 +119,7 @@ def plot_gr(adj=None, edges= None, sample_to_index=None, print_stats=False, csv_
         plt.savefig('/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/graph_plots/graph_'+csv_ending+'.png')
     else:
         plt.savefig('/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/graph_plots/graph.png')
-
+    plt.close()
 
 def plot_feature_correlation(data):
     """
