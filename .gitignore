@@ -1,10 +1,14 @@
 __pycache__/
 .DS_Store
 
+try.py
 
 **/data/*
+**/model/*
 **/*.png
 **/*.pt
+**/*.pkl
+
 .vscode/
 
 .ipynb_checkpoints
