@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import normalize
+from sklearn.preprocessing import MinMaxScaler
+
 import random
 
 from torch.nn.functional import elu
@@ -35,44 +37,73 @@ from torch.nn.functional import elu
 
 
 def main():
-    adj_matrix_path = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_hc_180PCs_10-30_edges.csv"
+    
+    adj_matrix_path = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_hc_360PCs_25-26_edges.csv"
     adjacency_matrix = pd.read_csv(adj_matrix_path, header=0, index_col=0)
     file_name = os.path.basename(adj_matrix_path)
+
+    samples_ids = adjacency_matrix.index
     
     print("\nUsing adjacency matrix: ", file_name)
     # print("Number of edges:", np.sum(adjacency_matrix.values > 0))
 
 
-    ### PHENOTYPE
-    MG_T_Ph_f = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
-
-
-    
-    MG_T_Ph_filteredSamples = MG_T_Ph_f.loc[adjacency_matrix.index] # get the samples with metagenomics and transcriptomics data that are in the adjacency matrix
-    
-    Pheno = MG_T_Ph_filteredSamples[['weight']]
-    y = torch.tensor(Pheno.values, dtype=torch.float)
-
 
     ### METAGENOMIC AND TRANSCRIPTOMIC FEATURES
+    
+    ### T10
+    # MG_T_Ph_f = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
+    # MG_T_Ph_filteredSamples = MG_T_Ph_f.loc[adjacency_matrix.index] # get the samples with metagenomics and transcriptomics data that are in the adjacency matrix
+
     # MG_T = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/scaled_input.csv", header=0, index_col=0)
     # MG_T_filteredSamples = MG_T_Ph.loc[adjacency_matrix.index]
     # MG_T = MG_T_filteredSamples
+    # MG = MG_T_Ph_f.loc[:, MG_T_Ph_filteredSamples.columns.str.startswith('MAG')]
     
-    ## METAGENOME
-    MG = MG_T_Ph_filteredSamples.loc[:, MG_T_Ph_filteredSamples.columns.str.startswith('MAG')]
+    ### METAGENOME
+    MG = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/HoloFish_MetaG_MeanCoverage_20221114.csv", header=0, index_col=0)
+    MG = MG.loc[samples_ids, MG.columns.str.startswith('MAG')]
+
+
+    def normalize_data(data):
+        sample_ids = data.index
+        feature_names = data.columns
+        data_matrix = data.values
+        scaler = MinMaxScaler()
+        scaled_matrix = scaler.fit_transform(data_matrix)
+        scaled_data = pd.DataFrame(scaled_matrix, index=sample_ids, columns=feature_names)
+        return scaled_data
+
     
-    ## TRANSCRIPTOME
-    T_10 = MG_T_Ph_filteredSamples.loc[:,~MG_T_Ph_filteredSamples.columns.str.startswith(('MAG', 'weight', 'size'))] # Keeping the 10 original (from Dylan) transcriptomic features
+    MG = normalize_data(MG)
+    
+    # OLD NORMALIZATION:
+    # MG = pd.DataFrame(normalize(MG, norm='l2', axis=1), index=MG.index, columns=MG.columns)
+    # standard_scaler = StandardScaler()
+    # MG = pd.DataFrame(standard_scaler.fit_transform(MG), index=MG.index, columns=MG.columns)
+
+
+
+    ### TRANSCRIPTOME
+    ## 10 features from Dylan
+    # T_10 = MG_T_Ph_filteredSamples.loc[:,~MG_T_Ph_filteredSamples.columns.str.startswith(('MAG', 'weight', 'size'))] # Keeping the 10 original (from Dylan) transcriptomic features
+    ## T features selected by Lasso/Variance/Autoencoder/PCA
     T_selected = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features/T_selected_features_Lasso.csv", header=0, index_col=0) # Lasso, Variance, Autoencoder, PCA - selected features
 
     # Remove the T features that are in both T_10 and T_selected
-    T_selected = T_selected.rename(columns=lambda x: x.split("+")[-1], inplace=False)
-    columns_toremove = T_selected.columns.intersection(T_10.columns)
-    T_selected_filtered = T_selected.drop(columns=columns_toremove)
+    # T_selected = T_selected.rename(columns=lambda x: x.split("+")[-1], inplace=False)
+    # columns_toremove = T_selected.columns.intersection(T_10.columns)
+    # T_selected_filtered = T_selected.drop(columns=columns_toremove)
 
+    # T = pd.concat([T_10, T_selected_filtered], axis=1)
+    T = T_selected
     
-    T = pd.concat([T_10, T_selected_filtered], axis=1)
+    T = normalize_data(T)
+
+    # OLD NORMALIZATION:
+    # T = pd.DataFrame(normalize(T, norm='l2', axis=1), index=T.index, columns=T.columns)
+    # standard_scaler = StandardScaler()
+    # T = pd.DataFrame(standard_scaler.fit_transform(T), index=T.index, columns=T.columns)
 
     # Getting Metagenomics and Transcriptomics features in one single object
     MG_T = pd.concat([MG, T], axis=1)
@@ -81,17 +112,18 @@ def main():
     ### Study correlations between features in matrix MG_T
     # plot_feature_correlation(T)
 
-
-    ### Scale and normalize MG_T features
-    # scaler = StandardScaler()
-    # MG_T_scaled = scaler.fit_transform(MG_T)
-    # MG_T_normalized = normalize(MG_T_scaled)
     
     X = torch.tensor(MG_T.values, dtype=torch.float)
     # X = torch.tensor(MG_T_normalized, dtype=torch.float)
-
     print("X shape: ", X.shape)
 
+
+
+    Pheno = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/HoloFish_FishVariables_20221116.csv", header=0, index_col=0)
+    Pheno = Pheno.loc[samples_ids, "Gutted.Weight.kg"]
+
+    # Pheno = MG_T_Ph_filteredSamples[['weight']] 
+    y = torch.tensor(Pheno.values, dtype=torch.float)
 
     ### BUILDING THE GRAPH
     edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix, print_tmp=False)
@@ -126,12 +158,12 @@ def main():
 
     ### Split into training and validation - 5-fold CROSS-VALIDATION
     # Shuffle the list of numbers
+    random.seed(2)
     shuffled_list = list(range(0, num_nodes))
-    random.seed(42)
     random.shuffle(shuffled_list) 
 
 
-    NUMBER_RANDOM_SPLITS = 5
+    NUMBER_RANDOM_SPLITS = 10 # No. CROSS-VALIDATION (CV) splits
     all_lists = {}
     for i in range(NUMBER_RANDOM_SPLITS):
         list_name = str("list" + str(i))
@@ -143,7 +175,7 @@ def main():
     # alternating using one of the lists (ith_list) as validation and the rest (all_lists_except_ith) as training
     for i in range(0, NUMBER_RANDOM_SPLITS):
 
-        print("\n\n\n\n ITERATION: ", str(i+1), "/",NUMBER_RANDOM_SPLITS ,"\n\n")
+        print("\n\n\n\n Cross-Validation: ", str(i+1), "/",NUMBER_RANDOM_SPLITS ,"\n\n")
         ith_list = all_lists["list" + str(i)]
         all_lists_except_ith = [all_lists[key] for key in all_lists if key != "list" + str(i)]
         union_lists = [element for sublist in all_lists_except_ith for element in sublist]
@@ -161,14 +193,14 @@ def main():
         data = Data(x=X, edge_index=edge_index, edge_attr=edge_attr, y=y, num_nodes=num_nodes, num_node_features=num_node_features)
         
         ## Statistics
-        print(f'Number of nodes: {data.num_nodes}')
+        print(f'\nNumber of nodes: {data.num_nodes}')
         print(f'Number of edges: {data.num_edges}')
         print(f'Average node degree: {data.num_edges / data.num_nodes:.2f}')
         # print(f'Number of training nodes: {data.train_mask.sum()}')
         # print(f'Training node label rate: {int(data.train_mask.sum()) / data.num_nodes:.2f}')
         print(f'Has isolated nodes: {data.has_isolated_nodes()}')
         print(f'Has self-loops: {data.has_self_loops()}')
-        print(f'Is undirected: {data.is_undirected()}')
+        print(f'Is undirected: {data.is_undirected()}\n')
 
 
         # Save it to the correct path. Next time you can skip the process(). 
@@ -186,7 +218,7 @@ def main():
             def __init__(self, num_node_features, state_dim):
                 super().__init__()
                 # super(GCN, self).__init__()
-                torch.manual_seed(12)
+                torch.manual_seed(12) #random seed
 
                 self.num_node_features = num_node_features
                 self.state_dim = state_dim
@@ -208,7 +240,7 @@ def main():
         class GCN_2(torch.nn.Module):
             def __init__(self, num_node_features, state_dim):
                 super().__init__()
-                torch.manual_seed(12)
+                torch.manual_seed(12) #random seed
 
                 self.num_node_features = num_node_features
                 self.state_dim = state_dim
@@ -237,7 +269,7 @@ def main():
         class GCN_deep(torch.nn.Module):
             def __init__(self, num_node_features, state_dim):
                 super(GCN_deep, self).__init__()
-                torch.manual_seed(12)
+                torch.manual_seed(12) #random seed
 
                 self.num_node_features = num_node_features
                 self.state_dim = state_dim
@@ -326,12 +358,19 @@ def main():
 
         # Loss function
         # mse_loss = F.mse_loss()
-        mse_loss = torch.nn.MSELoss()
+        # mae_loss = F.l1_loss()
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=2e-5,weight_decay=1e-3) #weight_decay=5e-4)
+        # mse_loss = torch.nn.MSELoss()
+        # mae_loss = torch.nn.L1Loss()
 
+        loss_fun = torch.nn.MSELoss()
+        # loss_fun = torch.nn.L1Loss()
+
+
+        optimizer = torch.optim.Adam(model.parameters(), lr=6e-5,weight_decay=1e-3) #weight_decay=5e-4)
+        
         # Learning rate scheduler
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9999)
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
 
 
         def train(losses_train, losses_val):
@@ -339,21 +378,23 @@ def main():
             optimizer.zero_grad()  # Clear gradients.
             out = model(data.x, data.edge_index)  # Perform a single forward pass. ### TODO CHECK, here we use the entire dataset, not just the training set. 
             
-            loss_train = mse_loss(out[train_mask], data.y[train_mask])
+            out = out.squeeze()
+
+            loss_train = loss_fun(out[train_mask], data.y[train_mask])
             losses_train.append(loss_train.item())
             
-            
-            loss_val = mse_loss(out[val_mask], data.y[val_mask])
+            loss_val = loss_fun(out[val_mask], data.y[val_mask])
             losses_val.append(loss_val.item())
 
-            loss = mse_loss(out, data.y)
-        #   loss = mse_loss(out.squeeze(), data.y.squeeze())
+            loss = loss_fun(out, data.y)
+        #   loss = loss_fun(out.squeeze(), data.y.squeeze())
 
 
             # TODO IN THE FOLLOWING LINES: ONLY DO optimizer.step() IF VAL_LOSS IS DECREASING. SHOULD WE ALSO SHUFFLE TRAINING AND VALIDATION SETS IN THIS PROCESS?
             ## Only compute gradients for nodes in the training set
         #   if len(losses_val) > 1 and losses_val[-1] <= losses_val[-2]:
 
+            
             loss_train.backward()  # Derive gradients.  ### TODO CHECK, here we only use the training set.
             optimizer.step()  # Update parameters based on gradients.
             scheduler.step() # Update the learning rate.
@@ -363,7 +404,7 @@ def main():
 
         # variance = torch.var(data.y)
         # print("Variance of y:", variance)
-        epochs = 50000
+        epochs = 40000
 
         # print(y)
         # out = model(data)
@@ -426,12 +467,16 @@ def main():
         ### EVALUATION
         model.eval()
         out = model(data.x, data.edge_index)
+        out = out.squeeze()
         
         # for predicted, actual  in zip(out, data.y): print(f'Predicted: {predicted.item():.4f}, Actual: {actual.item():.4f}, Difference: {abs(predicted.item()-actual.item()):.4f}')
         print("Avg difference: \n",np.mean(np.abs(out.detach().numpy() - data.y.detach().numpy())))
+        print('Max difference: \n', np.max(np.abs(out.detach().numpy() - data.y.detach().numpy())))
+
 
         # print("Avg difference (train): \n",np.mean(np.abs(out[train_mask].detach().numpy() - data.y[train_mask].detach().numpy())))
         print("Avg difference (val): \n",np.mean(np.abs(out[val_mask].detach().numpy() - data.y[val_mask].detach().numpy())))
+        print('Max difference (val): \n', np.max(np.abs(out[val_mask].detach().numpy() - data.y[val_mask].detach().numpy())))
 
 
         # Plotting the loss over epochs
@@ -442,10 +487,13 @@ def main():
         plt.title('Training and Validation Loss')
         plt.ylim(0, 4)  # Set the y-axis limits
         plt.legend()
-        plt.show()
+        # plt.show()
+        name_fig = "/Users/lorenzoguerci/Desktop/losses/" + file_name + "_losses_CV{}.png".format(i+1)
+        plt.savefig(str(name_fig)) 
 
+        plt.close()
 
-        # breakpoint()
+    breakpoint()
 
 
 

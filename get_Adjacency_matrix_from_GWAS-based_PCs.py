@@ -45,6 +45,7 @@ def get_similarity_matrix(sample_pcs, n_samples, print_tmp=False):
     if print_tmp: print("\nMatrix after normalization\n",dist_matrix)
 
     # Compute the similarity matrix as 1 - distance
+    # sample_similarity_matrix = dist_matrix
     sample_similarity_matrix = np.ones((n_samples,n_samples))-dist_matrix
     # TODO INSTEAD OF FOCUSING ON SIMILARITY, USE THE DISTANCES: sample_similarity_matrix = dist_matrix
     # We want 0s insted of 1s for the diagonal
@@ -100,15 +101,19 @@ def select_edges(sample_similarity_matrix, indexes, cluster_id, cutoff, min_edge
     Returns:
     - filtered_similarity_matrix
     """
+
+    MAX_CLUSTER_DIM = 10
         
-    ### ADDED: PRE-FILTER within CLUSTERs (FILTER EDGES BASED ON WITHIN-CLUSTER CONNECTIVITY LIMIT)
+    ### ADDED: PRE-FILTER within CLUSTERs (FILTER EDGES BASED ON WITHIN-CLUSTER CONNECTIVITY LIMIT) # TODO ADD THIS TO A SEPARATE FUNCTION AND CALL IT ONCE (INSTEAD OF FOR EACH MIN_EDGES, MAX_EDGES COMBINATION)
     indexes_cluster_only = [index.split("_")[1] for index in indexes]
 
     unique_cluster_ids, counts = np.unique(indexes_cluster_only, return_counts=True)
-    clusters_to_reduce = unique_cluster_ids[np.where(counts > 10)].astype(int)
-    if print_tmp: print("Clusters to reduce: ", clusters_to_reduce)
+    clusters_to_reduce = unique_cluster_ids[np.where(counts > MAX_CLUSTER_DIM)].astype(int)
+    print("Clusters to reduce: ", clusters_to_reduce)
 
-    MAX_EDGES_WITHIN_CLUSTERS = 5
+
+    MAX_EDGES_WITHIN_CLUSTERS = 1
+
 
     for id_cluster in clusters_to_reduce:
         cluster_indices = np.where(cluster_id == id_cluster)[0]
@@ -133,7 +138,7 @@ def select_edges(sample_similarity_matrix, indexes, cluster_id, cutoff, min_edge
         # print(np.allclose(m3,m3.T)) # check that the matrix is symmetric
 
         for num_r,i in enumerate(cluster_indices):
-            for num_c,j in enumerate(cluster_indices): 
+            for num_c,j in enumerate(cluster_indices):
                 sample_similarity_matrix[i,j] = m_cluster[num_r,num_c] # !!! we update the sample_similarity_matrix with the cluster filter
 
         if print_tmp:
@@ -226,7 +231,7 @@ def filter(adj_matrix):
 
 
 
-N_PCs = 180 # Defined after using the R script (see google colab)
+N_PCs = 360 # Defined after using the R script (see google colab)
 
 
 def main():
@@ -235,18 +240,24 @@ def main():
     sample_pcs = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)
     # print(sample_pcs)
 
-    # removing a specific sample
+    # COUNT THE NUMBER OF SAMPLES PER EACH CLUSTER
+    sample_pcs = pd.DataFrame(sample_pcs)
+    counts_groupby_size = sample_pcs.groupby('cluster_id').size().reset_index(name='count')
+    counts_groupby_size = counts_groupby_size[counts_groupby_size['count'] > 3]
+    # print(counts_groupby_size)
+
+    ## removing a specific sample
     # row_F400 = sample_pcs.loc["F400"]
-    # sample_pcs = sample_pcs.drop("F400")
+    # sample_pcs = sample_pcs.drop("F365")
 
 
 
-    ### FILTERING for MG T data availability
-    MG_T_Ph = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
-    # get the IDs of the sample with metagenomics and transcriptomics data
-    samples_with_MG_T_Ph_data = list(MG_T_Ph.index)
-    ## Keep only the samples for which we have transcriptomics and metagenomics data. 'final_input' is the file that contains all transcriptomics and metagenomics data for the samples we have such data for.
-    sample_pcs = sample_pcs[sample_pcs.index.isin(samples_with_MG_T_Ph_data)]
+    ### FILTERING for MG T data availability ###!!! WE NO LONGER DO THIS HERE, ALL THE SAMPLES WITH MG, T (and Ph) DATA HAVE BEEN ALREADY SELECTED (see clustering.py)
+    # MG_T_Ph = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
+    # # get the IDs of the sample with metagenomics and transcriptomics data
+    # samples_with_MG_T_Ph_data = list(MG_T_Ph.index)
+    # ## Keep only the samples for which we have transcriptomics and metagenomics data. 'final_input' is the file that contains all transcriptomics and metagenomics data for the samples we have such data for.
+    # sample_pcs = sample_pcs[sample_pcs.index.isin(samples_with_MG_T_Ph_data)]
 
     # print("\n\n\n", sample_pcs.index)
     # print(len(sample_pcs.index))
@@ -269,16 +280,41 @@ def main():
     # print("SHAPE:", sample_similarity_matrix.shape) # (361,361)
     # print("SHAPE:",sample_similarity_matrix.flatten() > 0.4)
 
+    # sample_similarity_matrix = pd.DataFrame(sample_similarity_matrix, index=indexes_with_clusters, columns=indexes_with_clusters)
+    
+    # # sample_similarity_matrix_c = sample_similarity_matrix.loc[sample_similarity_matrix.index.str.contains("_84")]
+    # sample_similarity_matrix_c = sample_similarity_matrix.loc[:,sample_similarity_matrix.columns.str.contains("_84")]
+
+
+
+    # def keep_max_only(row):
+    #     # Create a boolean mask where the max value(s) will be True
+    #     mask = row == row.max()
+    #     # Zero out values that are not the max
+    #     row[~mask] = 0
+    #     return row
+
+    # # Apply the function to each row
+    # sample_similarity_matrix_c_2 = sample_similarity_matrix_c.apply(keep_max_only, axis=1)
+
+    # print(sample_similarity_matrix_c_2["F365_84"])
+    # for i in sample_similarity_matrix_c_2["F365_84"]:print(i)
+
+
+    # breakpoint()
+
+
+
     rows, cols = sample_similarity_matrix.shape
     # Extract the upper diagonal elements into a vector
     upper_diag_vector = sample_similarity_matrix[np.triu_indices(rows, k=1)]
-    analyze_similarity(upper_diag_vector) # UNCOMMENT to plot a histogram of similarity-based edges distribution in order to choose a cutoff value
-    CUTOFF = 0.40 # we choose a cutoff of 0.6
+    # analyze_similarity(upper_diag_vector) # UNCOMMENT to plot a histogram of similarity-based edges distribution in order to choose a cutoff value
+    CUTOFF = 0.20 # we choose a cutoff value based on the histogram of the similarity-based edges distribution
 
 
     print("cutoff matrix:\n",sum(sample_similarity_matrix > CUTOFF)) # shape will be (n_samples,)
     
-    for MIN_EDGES in 1,3,4,5,6,7,8,9,10,11,12,13,14,15,17,20:
+    for MIN_EDGES in 1,3,4,5,6,7,8,9,10,11,12,13,14,15,17,20,25,30:
         for MAX_EDGES in 5,6,8,10,12,14,17,20,23,26,30,35,40,50:
             if MAX_EDGES > MIN_EDGES:
 
@@ -324,6 +360,8 @@ def main():
                 # print("\nFinal Adjacency_matrix:\n", adjacency_matrix_df)
 
 
+
+                adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes_with_clusters, columns=indexes_with_clusters)
                 # plot the graph
                 edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix_df, print_tmp=False)
                 plot_gr(adj = adjacency_matrix_df, edges= edge_index, sample_to_index=sample_to_index_df, print_stats=False, csv_ending = csv_ending)
