@@ -1,6 +1,6 @@
 
 
-ev = read.table("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA_Moiz/principalComponents_ofFish_basedOnGWAS_EIGENVALUES.tsv")
+ev = read.table("data/PCA_Moiz/principalComponents_ofFish_basedOnGWAS_EIGENVALUES.tsv")
 sum(ev)
 ev/sum(ev)
 

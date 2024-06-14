@@ -155,32 +155,32 @@ ALPHA = 0.01 # Only used for the Lasso method
 def main():
 
     ### get the IDs of the sample with genomics data
-    # sample_pcs = pd.read_excel("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)    
-    sample_pcs_index = (pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)).index
+    # sample_pcs = pd.read_excel("data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)    
+    sample_pcs_index = (pd.read_csv("data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)).index
 
     ### get the IDs of the sample with metagenomics and transcriptomics data
-    # samples_with_MG_T_Ph_data = list((pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)).index)
+    # samples_with_MG_T_Ph_data = list((pd.read_csv("data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)).index)
     # sample_index_final = sample_pcs_index[sample_pcs_index.isin(samples_with_MG_T_Ph_data)]
     # We removed the above lines: NOW WE SEPARATELY PROCESS MG and T! (see also clustering.py)
 
 
     ### METAGENOME features
-    MG = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/HoloFish_MetaG_MeanCoverage_20221114.csv", header=0, index_col=0)
+    MG = pd.read_csv("data/HoloFish_MetaG_MeanCoverage_20221114.csv", header=0, index_col=0)
     MG = MG.loc[:, MG.columns.str.startswith('MAG')]
 
     ### TRANSCRIPTOME features (UNFILTERED)
-    T_unfiltered = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/HoloFish_HostRNA_normalised_GeneCounts_230117.csv", header=0, index_col=0)
+    T_unfiltered = pd.read_csv("data/HoloFish_HostRNA_normalised_GeneCounts_230117.csv", header=0, index_col=0)
     T_unfiltered = T_unfiltered[T_unfiltered.index.isin(sample_pcs_index)]
 
     MG = MG.loc[MG.index.isin(T_unfiltered.index)]
     
 
     ### PHENOTYPE
-    # MG_T_Ph_f = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
+    # MG_T_Ph_f = pd.read_csv("data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
     # Pheno = MG_T_Ph_f.loc[T_unfiltered.index, "weight"] # get the samples with metagenomics and transcriptomics data that are in the adjacency matrix
     # We removed the above lines: NOW WE PROCESS P SEPARETELY from MG and T! (see also clustering.py)
 
-    Pheno = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/HoloFish_FishVariables_20221116.csv", header=0, index_col=0)
+    Pheno = pd.read_csv("data/HoloFish_FishVariables_20221116.csv", header=0, index_col=0)
     Pheno = Pheno.loc[T_unfiltered.index, "Gutted.Weight.kg"]
     y = Pheno
 
@@ -200,16 +200,16 @@ def main():
         T_scaled_df = pd.DataFrame(T_scaled, columns=T_unfiltered.columns, index=T_unfiltered.index)
 
         # Save the scaled features to a CSV file
-        T_scaled_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features/T_features_scaled.csv", index=True, sep=',')
+        T_scaled_df.to_csv("data/T_features/T_features_scaled.csv", index=True, sep=',')
 
         # Select the top N_FEATURES_TO_USE with the highest variance
         T_var_selected = T_unfiltered[T_unfiltered.var(axis=0).nlargest(N_FEATURES_TO_USE).index]
-        file_name = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
+        file_name = "data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
         T_var_selected.to_csv(file_name, index=True, sep=',')
 
         # Select the top N_FEATURES_TO_USE with the highest variance after scaling/normalizing
         T_var_selected_scaled = T_scaled_df[T_scaled_df.var(axis=0).nlargest(N_FEATURES_TO_USE).index]
-        file_name = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features/T_selected_features_scaled_" + SELECTION_METHOD + ".csv"
+        file_name = "data/T_features/T_selected_features_scaled_" + SELECTION_METHOD + ".csv"
         T_var_selected_scaled.to_csv(file_name, index=True, sep=',')
 
     if SELECTION_METHOD == "MOGCN-VAE":
@@ -239,7 +239,7 @@ def main():
 
 
         # selected_features_df = T_unfiltered[selected_features].sort_index()
-        # file_name = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
+        # file_name = "data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
         # selected_features_df.to_csv(file_name, index=True, sep=',')
 
 
@@ -278,7 +278,7 @@ def main():
     #     encoded_features_df = pd.DataFrame(encoded_features, index=T_unfiltered.index)
 
     #     # Save the encoded features to a CSV file
-    #     encoded_features_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features/T_features_encoded.csv", index=True, sep=',')
+    #     encoded_features_df.to_csv("data/T_features/T_features_encoded.csv", index=True, sep=',')
 
 
     if SELECTION_METHOD == "Lasso":
@@ -312,7 +312,7 @@ def main():
 
         # Save the matrix of the selected features to a CSV file
         selected_features_df = T_unfiltered[selected_features].sort_index()
-        file_name = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
+        file_name = "data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
         selected_features_df.to_csv(file_name, index=True, sep=',')
     
 

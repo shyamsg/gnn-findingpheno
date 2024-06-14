@@ -29,13 +29,13 @@ def plot_dendrogram(Z, title="Hierarchical Clustering Dendrogram"):
 
 def main():    
 
-    sample_pcs = pd.read_excel("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)    
-    # sample_pcs = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)
+    sample_pcs = pd.read_excel("data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)    
+    # sample_pcs = pd.read_csv("data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)
 
     # get the IDs of the sample with metagenomics and transcriptomics data
-    # NOW WE SEPARATELY PROCESS MG and T! samples_with_MG_T_Ph_data = list((pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)).index)
-    T_samples = list((pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/HoloFish_HostRNA_normalised_GeneCounts_230117.csv", header=0, index_col=0)).index)
-    MG_samples = list((pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/HoloFish_MetaG_MeanCoverage_20221114.csv", header=0, index_col=0)).index)
+    # NOW WE SEPARATELY PROCESS MG and T! samples_with_MG_T_Ph_data = list((pd.read_csv("data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)).index)
+    T_samples = list((pd.read_csv("data/HoloFish_HostRNA_normalised_GeneCounts_230117.csv", header=0, index_col=0)).index)
+    MG_samples = list((pd.read_csv("data/HoloFish_MetaG_MeanCoverage_20221114.csv", header=0, index_col=0)).index)
 
     sample_pcs = sample_pcs[sample_pcs.index.isin(T_samples) & sample_pcs.index.isin(MG_samples)]
 
@@ -140,7 +140,7 @@ def main():
         
 
         sample_pcs_d['cluster_id'] = clusters
-        sample_pcs_d.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", index=True, sep=',')
+        sample_pcs_d.to_csv("data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", index=True, sep=',')
 
         # We can repeat this process iteratively to further reduce the number of points. We get to a point where each cluster contains exactly 1 point except for one cluster, which contains the remaining points. We keep only one point for this cluster. Then repeat.
 

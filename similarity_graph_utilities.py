@@ -33,7 +33,7 @@ def get_edges_from_adjacency(adjacency_matrix, print_tmp=False):
     
     # Save sparse_adj_matrix to a CSV file
     # df = pd.DataFrame({'tuples': [str(t) for t in sparse_adj_matrix.indices], 'values': sparse_adj_matrix.data})
-    # df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/output/sparse_adj_matrix.csv", index=True)
+    # df.to_csv("data/output/sparse_adj_matrix.csv", index=True)
 
     edge_index, edge_attr = from_scipy_sparse_matrix(sparse_adj_matrix)
 
@@ -56,9 +56,9 @@ def plot_gr(adj=None, edges= None, sample_to_index=None, print_stats=False, csv_
 
     # All the following files are in the google colab folder "FindingPheno/output"
     
-    # adj = '/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/output/adjacency_matrix.csv'
-    # edges = '/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/output/edge_index.csv'
-    # sample_to_index = '/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/output/sample_to_index.csv'
+    # adj = 'data/output/adjacency_matrix.csv'
+    # edges = 'data/output/edge_index.csv'
+    # sample_to_index = 'data/output/sample_to_index.csv'
     
     if adj is None and edges is None:
         raise ValueError("At least one of the following must be provided: adj, edges")
@@ -116,9 +116,9 @@ def plot_gr(adj=None, edges= None, sample_to_index=None, print_stats=False, csv_
     # plt.show()
     
     if csv_ending is not None:
-        plt.savefig('/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/graph_plots/graph_'+csv_ending+'.png')
+        plt.savefig('data/graph_plots/graph_'+csv_ending+'.png')
     else:
-        plt.savefig('/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/graph_plots/graph.png')
+        plt.savefig('data/graph_plots/graph.png')
     plt.close()
 
 def plot_feature_correlation(data):

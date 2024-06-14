@@ -38,7 +38,7 @@ from torch.nn.functional import elu
 
 def main():
     
-    adj_matrix_path = "/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_hc_360PCs_25-26_edges.csv"
+    adj_matrix_path = "data/adj_matrices/adj_matrix_hc_360PCs_25-26_edges.csv"
     adjacency_matrix = pd.read_csv(adj_matrix_path, header=0, index_col=0)
     file_name = os.path.basename(adj_matrix_path)
 
@@ -52,16 +52,16 @@ def main():
     ### METAGENOMIC AND TRANSCRIPTOMIC FEATURES
     
     ### T10
-    # MG_T_Ph_f = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
+    # MG_T_Ph_f = pd.read_csv("data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
     # MG_T_Ph_filteredSamples = MG_T_Ph_f.loc[adjacency_matrix.index] # get the samples with metagenomics and transcriptomics data that are in the adjacency matrix
 
-    # MG_T = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/scaled_input.csv", header=0, index_col=0)
+    # MG_T = pd.read_csv("data/T_MG_P_input_data/scaled_input.csv", header=0, index_col=0)
     # MG_T_filteredSamples = MG_T_Ph.loc[adjacency_matrix.index]
     # MG_T = MG_T_filteredSamples
     # MG = MG_T_Ph_f.loc[:, MG_T_Ph_filteredSamples.columns.str.startswith('MAG')]
     
     ### METAGENOME
-    MG = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/HoloFish_MetaG_MeanCoverage_20221114.csv", header=0, index_col=0)
+    MG = pd.read_csv("data/HoloFish_MetaG_MeanCoverage_20221114.csv", header=0, index_col=0)
     MG = MG.loc[samples_ids, MG.columns.str.startswith('MAG')]
 
 
@@ -88,7 +88,7 @@ def main():
     ## 10 features from Dylan
     # T_10 = MG_T_Ph_filteredSamples.loc[:,~MG_T_Ph_filteredSamples.columns.str.startswith(('MAG', 'weight', 'size'))] # Keeping the 10 original (from Dylan) transcriptomic features
     ## T features selected by Lasso/Variance/Autoencoder/PCA
-    T_selected = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_features/T_selected_features_Lasso.csv", header=0, index_col=0) # Lasso, Variance, Autoencoder, PCA - selected features
+    T_selected = pd.read_csv("data/T_features/T_selected_features_Lasso.csv", header=0, index_col=0) # Lasso, Variance, Autoencoder, PCA - selected features
 
     # Remove the T features that are in both T_10 and T_selected
     # T_selected = T_selected.rename(columns=lambda x: x.split("+")[-1], inplace=False)
@@ -119,7 +119,7 @@ def main():
 
 
 
-    Pheno = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/HoloFish_FishVariables_20221116.csv", header=0, index_col=0)
+    Pheno = pd.read_csv("data/HoloFish_FishVariables_20221116.csv", header=0, index_col=0)
     Pheno = Pheno.loc[samples_ids, "Gutted.Weight.kg"]
 
     # Pheno = MG_T_Ph_filteredSamples[['weight']] 
@@ -129,8 +129,8 @@ def main():
     edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix, print_tmp=False)
     
     # edge_index_df = pd.DataFrame(edge_index.numpy().T, columns=['source', 'target'])
-    # sample_to_index_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/output/sample_to_index_2.csv", index=False)
-    # edge_index_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/output/edge_index_2.csv", index=True)
+    # sample_to_index_df.to_csv("data/output/sample_to_index_2.csv", index=False)
+    # edge_index_df.to_csv("data/output/edge_index_2.csv", index=True)
 
     num_nodes=MG_T.shape[0]
     num_node_features=MG_T.shape[1]

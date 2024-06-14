@@ -10,6 +10,9 @@ from similarity_graph_utilities import get_edges_from_adjacency
 from similarity_graph_utilities import plot_gr
 
 
+REAL_VALUES = False
+
+
 def get_similarity_matrix(sample_pcs, n_samples, print_tmp=False):
     """
     Get n_sample x n_sample similarity matrix from n_sample x n_PCs matrix
@@ -53,7 +56,7 @@ def get_similarity_matrix(sample_pcs, n_samples, print_tmp=False):
     if print_tmp: print("\nMatrix after 1-dist_matrix and 0s in the diagonal operation\n",sample_similarity_matrix)
 
     df = pd.DataFrame(sample_similarity_matrix)
-    df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/sample_similarity_matrix.tsv", sep='\t', index=True, header=True)
+    df.to_csv("data/PCA/sample_similarity_matrix.tsv", sep='\t', index=True, header=True)
 
     return sample_similarity_matrix
 
@@ -85,7 +88,7 @@ def plot_sample_similarity_distribution(upper_diag_vector, num_bins):
     return
 
 
-def select_edges(sample_similarity_matrix, indexes, cluster_id, cutoff, min_edges=12, max_edges=25, print_tmp=False):
+def select_edges(sample_similarity_matrix, indexes, cluster_id, cutoff, min_edges=12, max_edges=25, print_tmp=False, real_values=True):
     """
     Filter the similarity edges based on 3 criteria:
     1 - Similarity value above cutoff
@@ -104,109 +107,120 @@ def select_edges(sample_similarity_matrix, indexes, cluster_id, cutoff, min_edge
 
     MAX_CLUSTER_DIM = 10
         
-    ### ADDED: PRE-FILTER within CLUSTERs (FILTER EDGES BASED ON WITHIN-CLUSTER CONNECTIVITY LIMIT) # TODO ADD THIS TO A SEPARATE FUNCTION AND CALL IT ONCE (INSTEAD OF FOR EACH MIN_EDGES, MAX_EDGES COMBINATION)
-    indexes_cluster_only = [index.split("_")[1] for index in indexes]
+    if real_values == False:
+        ### ADDED: PRE-FILTER within CLUSTERs (FILTER EDGES BASED ON WITHIN-CLUSTER CONNECTIVITY LIMIT) # TODO ADD THIS TO A SEPARATE FUNCTION AND CALL IT ONCE (INSTEAD OF FOR EACH MIN_EDGES, MAX_EDGES COMBINATION)
+        indexes_cluster_only = [index.split("_")[1] for index in indexes]
 
-    unique_cluster_ids, counts = np.unique(indexes_cluster_only, return_counts=True)
-    clusters_to_reduce = unique_cluster_ids[np.where(counts > MAX_CLUSTER_DIM)].astype(int)
-    print("Clusters to reduce: ", clusters_to_reduce)
-
-
-    MAX_EDGES_WITHIN_CLUSTERS = 1
+        unique_cluster_ids, counts = np.unique(indexes_cluster_only, return_counts=True)
+        clusters_to_reduce = unique_cluster_ids[np.where(counts > MAX_CLUSTER_DIM)].astype(int)
+        print("Clusters to reduce: ", clusters_to_reduce)
 
 
-    for id_cluster in clusters_to_reduce:
-        cluster_indices = np.where(cluster_id == id_cluster)[0]
-        cluster = sample_similarity_matrix[cluster_indices][:, cluster_indices]
+        MAX_EDGES_WITHIN_CLUSTERS = 1 # we keep only the top connection for each node within the (highly connected) cluster
 
-        if print_tmp: 
-            print("\nCluster ", id_cluster)
-            print("BEFORE WITHIN-CLUSTER FILTERING")
-            print("Total number of edges for the given cutoff value:", sum(sum(cluster>0)))
-            print("number of within-cluster edges for each node in the cluster:\n", np.sum(cluster>cutoff, axis=1))
 
-        # number of edges above the cutoff
+        for id_cluster in clusters_to_reduce:
+            cluster_indices = np.where(cluster_id == id_cluster)[0]
+            cluster = sample_similarity_matrix[cluster_indices][:, cluster_indices]
+
+            if print_tmp: 
+                print("\nCluster ", id_cluster)
+                print("BEFORE WITHIN-CLUSTER FILTERING")
+                print("Total number of edges for the given cutoff value:", sum(sum(cluster>0)))
+                print("number of within-cluster edges for each node in the cluster:\n", np.sum(cluster>cutoff, axis=1))
+
+            # number of edges above the cutoff
+
+            # Find the indices of the N highest values in each row
+            top_indices = np.argsort(cluster, axis=1)[:, -MAX_EDGES_WITHIN_CLUSTERS:]
+            # Create a mask to set the top N values to 1 and others to 0
+            rows = np.arange(cluster.shape[0])[:, None]
+            m_cluster = np.zeros_like(cluster)
+            m_cluster[rows, top_indices] = 1
+            m_cluster[top_indices, rows] = 1 # ! Added this line to ensure symmetry (if you add an edge from i to j, also add from j to i)
+            m_cluster = m_cluster.astype(float)
+            # print(np.allclose(m3,m3.T)) # check that the matrix is symmetric
+
+            for num_r,i in enumerate(cluster_indices):
+                for num_c,j in enumerate(cluster_indices):
+                    sample_similarity_matrix[i,j] = m_cluster[num_r,num_c] # !!! we update the sample_similarity_matrix with the cluster filter
+
+            if print_tmp:
+                print("AFTER WITHIN-CLUSTER FILTERING")
+                print("Total number of edges for the given cutoff value:", sum(sum(m_cluster>0)))
+                print("number of within-cluster edges for each node in the cluster:\n",np.sum(m_cluster, axis=1).astype(int))     
+
+
+
+        ##### Three matrices to merge:
+
+        #### 1: Keep the edges above the cutoff
+        m1 = (sample_similarity_matrix>cutoff).astype(int) # numpy.ndarray, (361,361)
+        if print_tmp: print("m1:\n", m1)
+
+        
+        #### 2: Keep the top connection for each node
 
         # Find the indices of the N highest values in each row
-        top_indices = np.argsort(cluster, axis=1)[:, -MAX_EDGES_WITHIN_CLUSTERS:]
+        top_indices = np.argsort(sample_similarity_matrix, axis=1)[:, -min_edges:]
         # Create a mask to set the top N values to 1 and others to 0
-        rows = np.arange(cluster.shape[0])[:, None]
-        m_cluster = np.zeros_like(cluster)
-        m_cluster[rows, top_indices] = 1
-        m_cluster[top_indices, rows] = 1 # ! Added this line to ensure symmetry (if you add an edge from i to j, also add from j to i)
-        m_cluster = m_cluster.astype(float)
+        m2 = np.zeros_like(sample_similarity_matrix)
+        rows = np.arange(sample_similarity_matrix.shape[0])[:, None]
+        m2[rows, top_indices] = 1
+        m2[top_indices, rows] = 1 # ! Added this line to ensure symmetry (if you add an edge from i to j, also add from j to i)
+        m2 = m2.astype(float)
+        # print(np.allclose(m2,m2.T)) # check that the matrix is symmetric
+
+        row_sums = np.sum(m2, axis=1)
+        # for i, row_sum in enumerate(row_sums):
+        #    print("Sum of row {}: {}".format(i+1, row_sum)) # OUTPUT should be >= min_edges for each line
+
+
+        # max_indices = np.argmax(sample_similarity_matrix, axis=1)
+        # m2 = np.zeros_like(sample_similarity_matrix)
+        # m2[np.arange(m2.shape[0]), max_indices] = 1 # set to 1 the maximum value in each row
+        # m2[max_indices, np.arange(m2.shape[1])] = 1 # ! Added this line to ensure symmetry (if you add an edge from i to j, also add from j to i)
+        # print(np.allclose(m2,m2.T)) # check that the matrix is symmetric
+
+        if print_tmp: print("\nm2:\n", m2)
+
+
+        #### 3: Take the top N edges for each node (maximum number of edges for each node)
+        # Find the indices of the N highest values in each row
+        top_indices = np.argsort(sample_similarity_matrix, axis=1)[:, -max_edges:]
+        # Create a mask to set the top N values to 1 and others to 0
+        m3 = np.zeros_like(sample_similarity_matrix)
+        rows = np.arange(sample_similarity_matrix.shape[0])[:, None]
+        m3[rows, top_indices] = 1
+        m3[top_indices, rows] = 1 # ! Added this line to ensure symmetry (if you add an edge from i to j, also add from j to i)
+        m3 = m3.astype(float)
         # print(np.allclose(m3,m3.T)) # check that the matrix is symmetric
 
-        for num_r,i in enumerate(cluster_indices):
-            for num_c,j in enumerate(cluster_indices):
-                sample_similarity_matrix[i,j] = m_cluster[num_r,num_c] # !!! we update the sample_similarity_matrix with the cluster filter
-
-        if print_tmp:
-            print("AFTER WITHIN-CLUSTER FILTERING")
-            print("Total number of edges for the given cutoff value:", sum(sum(m_cluster>0)))
-            print("number of within-cluster edges for each node in the cluster:\n",np.sum(m_cluster, axis=1).astype(int))     
+        if print_tmp: print("\nm3:\n", m3)
+        if print_tmp: print("\nNumber of connections per node:\n",np.sum(m3, axis=1)) # OUTPUT should be >=max_edges for each line (it can be >20 because after considering the top 20 edges for each node, we add the symmetric)
 
 
-
-    ##### Three matrices to merge:
-
-    #### 1: Keep the edges above the cutoff
-    m1 = (sample_similarity_matrix>cutoff).astype(int) # numpy.ndarray, (361,361)
-    if print_tmp: print("m1:\n", m1)
-
+        ##### Union between the 3 matrices
+        filtered_similarity_matrix = np.logical_or(m1, m2).astype(float)
+        if print_tmp: print("m1+m2:\n",sum(filtered_similarity_matrix>0))
+        # print(np.sum(filtered_similarity_matrix, axis=1)) # OUTPUT should be =20 for each line # OUTPUT should be >=1 for each line
+        filtered_similarity_matrix *= m3
+        # print(np.sum(filtered_similarity_matrix, axis=1)) # OUTPUT should be >=1 AND <=20 for each line
+        #np.set_printoptions(threshold=np.inf) # print the full matrix instead of the truncated version
+        if print_tmp: print("\nfinal matrix\n",filtered_similarity_matrix)
     
-    #### 2: Keep the top connection for each node
-
-    # Find the indices of the N highest values in each row
-    top_indices = np.argsort(sample_similarity_matrix, axis=1)[:, -min_edges:]
-    # Create a mask to set the top N values to 1 and others to 0
-    m2 = np.zeros_like(sample_similarity_matrix)
-    rows = np.arange(sample_similarity_matrix.shape[0])[:, None]
-    m2[rows, top_indices] = 1
-    m2[top_indices, rows] = 1 # ! Added this line to ensure symmetry (if you add an edge from i to j, also add from j to i)
-    m2 = m2.astype(float)
-    # print(np.allclose(m2,m2.T)) # check that the matrix is symmetric
-
-    row_sums = np.sum(m2, axis=1)
-    # for i, row_sum in enumerate(row_sums):
-    #    print("Sum of row {}: {}".format(i+1, row_sum)) # OUTPUT should be >= min_edges for each line
-
-
-    # max_indices = np.argmax(sample_similarity_matrix, axis=1)
-    # m2 = np.zeros_like(sample_similarity_matrix)
-    # m2[np.arange(m2.shape[0]), max_indices] = 1 # set to 1 the maximum value in each row
-    # m2[max_indices, np.arange(m2.shape[1])] = 1 # ! Added this line to ensure symmetry (if you add an edge from i to j, also add from j to i)
-    # print(np.allclose(m2,m2.T)) # check that the matrix is symmetric
-
-    if print_tmp: print("\nm2:\n", m2)
-
-
-    #### 3: Take the top N edges for each node (maximum number of edges for each node)
-    # Find the indices of the N highest values in each row
-    top_indices = np.argsort(sample_similarity_matrix, axis=1)[:, -max_edges:]
-    # Create a mask to set the top N values to 1 and others to 0
-    m3 = np.zeros_like(sample_similarity_matrix)
-    rows = np.arange(sample_similarity_matrix.shape[0])[:, None]
-    m3[rows, top_indices] = 1
-    m3[top_indices, rows] = 1 # ! Added this line to ensure symmetry (if you add an edge from i to j, also add from j to i)
-    m3 = m3.astype(float)
-    # print(np.allclose(m3,m3.T)) # check that the matrix is symmetric
-
-    if print_tmp: print("\nm3:\n", m3)
-    if print_tmp: print("\nNumber of connections per node:\n",np.sum(m3, axis=1)) # OUTPUT should be >=max_edges for each line (it can be >20 because after considering the top 20 edges for each node, we add the symmetric)
-
-
-    ##### Union between the 3 matrices
-    filtered_similarity_matrix = np.logical_or(m1, m2).astype(float)
-    if print_tmp: print("m1+m2:\n",sum(filtered_similarity_matrix>0))
-    # print(np.sum(filtered_similarity_matrix, axis=1)) # OUTPUT should be =20 for each line # OUTPUT should be >=1 for each line
-    filtered_similarity_matrix *= m3
-    # print(np.sum(filtered_similarity_matrix, axis=1)) # OUTPUT should be >=1 AND <=20 for each line
-    #np.set_printoptions(threshold=np.inf) # print the full matrix instead of the truncated version
-    if print_tmp: print("\nfinal matrix\n",filtered_similarity_matrix)
     
+    else: # REAL VALUES # 
+        sample_similarity_matrix[sample_similarity_matrix < cutoff] = 0 # Keep the edges above the cutoff
+        filtered_similarity_matrix = sample_similarity_matrix
+        # filtered_similarity_matrix = (sample_similarity_matrix>cutoff).astype(float)
+        if print_tmp: print("filtered_similarity_matrix:\n", filtered_similarity_matrix)
+
+    breakpoint()  
+
     print("Number of edges: ", np.sum(filtered_similarity_matrix))
 
+    # num_filtered_edges = np.sum((filtered_similarity_matrix > 0) & (filtered_similarity_matrix < cutoff)) # CHECK THAT THIS IS EQUAL TO 0
 
     return filtered_similarity_matrix
 
@@ -236,8 +250,8 @@ N_PCs = 360 # Defined after using the R script (see google colab)
 
 def main():
 
-    # sample_pcs = pd.read_excel("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)
-    sample_pcs = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)
+    # sample_pcs = pd.read_excel("data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)
+    sample_pcs = pd.read_csv("data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)
     # print(sample_pcs)
 
     # COUNT THE NUMBER OF SAMPLES PER EACH CLUSTER
@@ -253,7 +267,7 @@ def main():
 
 
     ### FILTERING for MG T data availability ###!!! WE NO LONGER DO THIS HERE, ALL THE SAMPLES WITH MG, T (and Ph) DATA HAVE BEEN ALREADY SELECTED (see clustering.py)
-    # MG_T_Ph = pd.read_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
+    # MG_T_Ph = pd.read_csv("data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
     # # get the IDs of the sample with metagenomics and transcriptomics data
     # samples_with_MG_T_Ph_data = list(MG_T_Ph.index)
     # ## Keep only the samples for which we have transcriptomics and metagenomics data. 'final_input' is the file that contains all transcriptomics and metagenomics data for the samples we have such data for.
@@ -355,10 +369,13 @@ def main():
 
                 # Save adjacency_matrix to a CSV file
                 adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes, columns=indexes) # we use the indexes of the samples to set the row and column names
-                csv_ending = str("hc_") + str(N_PCs) + "PCs_" + str(MIN_EDGES) + "-"+ str(MAX_EDGES) + "_edges"
-                adjacency_matrix_df.to_csv("/Users/lorenzoguerci/Desktop/Biosust_CEH/FindingPheno/data/adj_matrices/adj_matrix_"+ csv_ending +".csv", index=True, sep=',')
+                
+                
+                csv_ending = str("hc_") + str(N_PCs) + "PCs_" + str(MIN_EDGES) + "-" + str(MAX_EDGES) + "_edges"
+                if REAL_VALUES: csv_ending += "_rv"
+                
+                adjacency_matrix_df.to_csv("data/adj_matrices/adj_matrix_"+ csv_ending +".csv", index=True, sep=',')
                 # print("\nFinal Adjacency_matrix:\n", adjacency_matrix_df)
-
 
 
                 adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes_with_clusters, columns=indexes_with_clusters)
