@@ -10,7 +10,7 @@ from similarity_graph_utilities import get_edges_from_adjacency
 from similarity_graph_utilities import plot_gr
 
 
-REAL_VALUES = False
+BINARY_EDGES = False
 
 
 def get_similarity_matrix(sample_pcs, n_samples, print_tmp=False):
@@ -88,7 +88,7 @@ def plot_sample_similarity_distribution(upper_diag_vector, num_bins):
     return
 
 
-def select_edges(sample_similarity_matrix, indexes, cluster_id, cutoff, min_edges=12, max_edges=25, print_tmp=False, real_values=True):
+def select_edges(sample_similarity_matrix, indexes, cluster_id, cutoff, min_edges=12, max_edges=25, print_tmp=False, binary_edges=True):
     """
     Filter the similarity edges based on 3 criteria:
     1 - Similarity value above cutoff
@@ -106,8 +106,13 @@ def select_edges(sample_similarity_matrix, indexes, cluster_id, cutoff, min_edge
     """
 
     MAX_CLUSTER_DIM = 10
+
+    # save_path = "data/tmp_bfr.csv"
+    # df = pd.DataFrame(sample_similarity_matrix)
+    # df.to_csv(save_path, sep=',', index=True, header=True)
+
         
-    if real_values == False:
+    if binary_edges == True: # BINARY VALUES #
         ### ADDED: PRE-FILTER within CLUSTERs (FILTER EDGES BASED ON WITHIN-CLUSTER CONNECTIVITY LIMIT) # TODO ADD THIS TO A SEPARATE FUNCTION AND CALL IT ONCE (INSTEAD OF FOR EACH MIN_EDGES, MAX_EDGES COMBINATION)
         indexes_cluster_only = [index.split("_")[1] for index in indexes]
 
@@ -210,16 +215,18 @@ def select_edges(sample_similarity_matrix, indexes, cluster_id, cutoff, min_edge
         if print_tmp: print("\nfinal matrix\n",filtered_similarity_matrix)
     
     
-    else: # REAL VALUES # 
+    else: # REAL VALUES (edge weights are not binarized)
         sample_similarity_matrix[sample_similarity_matrix < cutoff] = 0 # Keep the edges above the cutoff
         filtered_similarity_matrix = sample_similarity_matrix
         # filtered_similarity_matrix = (sample_similarity_matrix>cutoff).astype(float)
         if print_tmp: print("filtered_similarity_matrix:\n", filtered_similarity_matrix)
 
-    breakpoint()  
+        # save_path = "data/tmp.csv"
+        # df = pd.DataFrame(filtered_similarity_matrix)
+        # df.to_csv(save_path, sep=',', index=True, header=True)
+      
 
-    print("Number of edges: ", np.sum(filtered_similarity_matrix))
-
+    # print("Number of edges: ", np.sum(filtered_similarity_matrix))
     # num_filtered_edges = np.sum((filtered_similarity_matrix > 0) & (filtered_similarity_matrix < cutoff)) # CHECK THAT THIS IS EQUAL TO 0
 
     return filtered_similarity_matrix
@@ -315,73 +322,97 @@ def main():
     # for i in sample_similarity_matrix_c_2["F365_84"]:print(i)
 
 
-    # breakpoint()
-
-
-
     rows, cols = sample_similarity_matrix.shape
     # Extract the upper diagonal elements into a vector
     upper_diag_vector = sample_similarity_matrix[np.triu_indices(rows, k=1)]
-    # analyze_similarity(upper_diag_vector) # UNCOMMENT to plot a histogram of similarity-based edges distribution in order to choose a cutoff value
+    analyze_similarity(upper_diag_vector) # UNCOMMENT to plot a histogram of similarity-based edges distribution in order to choose a cutoff value
     CUTOFF = 0.20 # we choose a cutoff value based on the histogram of the similarity-based edges distribution
 
 
     print("cutoff matrix:\n",sum(sample_similarity_matrix > CUTOFF)) # shape will be (n_samples,)
     
-    for MIN_EDGES in 1,3,4,5,6,7,8,9,10,11,12,13,14,15,17,20,25,30:
-        for MAX_EDGES in 5,6,8,10,12,14,17,20,23,26,30,35,40,50:
-            if MAX_EDGES > MIN_EDGES:
-
-                print(str(MIN_EDGES), " - ", str(MAX_EDGES))
-
-                adjacency_matrix = select_edges(sample_similarity_matrix, indexes_with_clusters, cluster_id, cutoff=CUTOFF, min_edges=MIN_EDGES, max_edges=MAX_EDGES, print_tmp=False)
-                # print("\nFiltered similarity matrix:\n", adjacency_matrix)
-                
-                row_sums = np.sum(adjacency_matrix, axis=1)
-                # print("\nNumber of edges per each node after filtering:\n", row_sums)
-                
-                # ### KEEP ONLY N% OF THE EDGES IN THE CLUSTER 77, which is the largest cluster, composed of 54 highly similar (-> high connected) samples
-                # ID_CLUSTER = 77
-                # # Extract the submatrix
-                # cluster_indices = np.where(cluster_id == ID_CLUSTER)[0]
-                # cluster = adjacency_matrix[cluster_indices][:, cluster_indices]    
-                # # Find the indices of all 1s in the submatrix
-                # ones_indices = np.argwhere(cluster == 1)
-    
-                # # Calculate the number of 1s to change (20% of the total 1s)
-                # num_ones = len(ones_indices)
-                # PERCENTAGE_TO_REMOVE = 0.4
-                # num_to_change = int(np.ceil(PERCENTAGE_TO_REMOVE * num_ones)) # we REMOVE % of the edges
-    
-                # # Randomly select indices to change
-                # np.random.seed(0) 
-                # indices_to_change = ones_indices[np.random.choice(num_ones, num_to_change, replace=False)]
-    
-                # # Set the selected indices to 0 in the submatrix
-                # for index in indices_to_change: cluster[tuple(index)] = 0
-    
-                # # Update the original matrix with the modified submatrix
-                
-                # for num_r,i in enumerate(cluster_indices):
-                #     for num_c,j in enumerate(cluster_indices):
-                #         adjacency_matrix[i,j] = cluster[num_r,num_c]# we update the adjacency matrix with the modified cluster
+    if BINARY_EDGES:
+        for MIN_EDGES in 1,3,4,5,6,7,8,9,10,11,12,13,14,15,17,20,25,30:
+            for MAX_EDGES in 5,6,8,10,12,14,17,20,23,26,30,35,40,50:
+                if MAX_EDGES > MIN_EDGES:
 
 
-                # Save adjacency_matrix to a CSV file
-                adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes, columns=indexes) # we use the indexes of the samples to set the row and column names
-                
-                
-                csv_ending = str("hc_") + str(N_PCs) + "PCs_" + str(MIN_EDGES) + "-" + str(MAX_EDGES) + "_edges"
-                if REAL_VALUES: csv_ending += "_rv"
-                
-                adjacency_matrix_df.to_csv("data/adj_matrices/adj_matrix_"+ csv_ending +".csv", index=True, sep=',')
-                # print("\nFinal Adjacency_matrix:\n", adjacency_matrix_df)
+                    adjacency_matrix = select_edges(sample_similarity_matrix, indexes_with_clusters, cluster_id, cutoff=CUTOFF, min_edges=MIN_EDGES, max_edges=MAX_EDGES, print_tmp=False, binary_edges=True)
+                    # print("\nFiltered similarity matrix:\n", adjacency_matrix)
+                    
+                    print("Min edges: ", str(MIN_EDGES), " - Max edges: ", str(MAX_EDGES), "Number of edges: ", np.sum(adjacency_matrix))
+
+                    row_sums = np.sum(adjacency_matrix, axis=1)
+                    # print("\nNumber of edges per each node after filtering:\n", row_sums)
+                    
+                    # ### KEEP ONLY N% OF THE EDGES IN THE CLUSTER 77, which is the largest cluster, composed of 54 highly similar (-> high connected) samples
+                    # ID_CLUSTER = 77
+                    # # Extract the submatrix
+                    # cluster_indices = np.where(cluster_id == ID_CLUSTER)[0]
+                    # cluster = adjacency_matrix[cluster_indices][:, cluster_indices]    
+                    # # Find the indices of all 1s in the submatrix
+                    # ones_indices = np.argwhere(cluster == 1)
+        
+                    # # Calculate the number of 1s to change (20% of the total 1s)
+                    # num_ones = len(ones_indices)
+                    # PERCENTAGE_TO_REMOVE = 0.4
+                    # num_to_change = int(np.ceil(PERCENTAGE_TO_REMOVE * num_ones)) # we REMOVE % of the edges
+        
+                    # # Randomly select indices to change
+                    # np.random.seed(0) 
+                    # indices_to_change = ones_indices[np.random.choice(num_ones, num_to_change, replace=False)]
+        
+                    # # Set the selected indices to 0 in the submatrix
+                    # for index in indices_to_change: cluster[tuple(index)] = 0
+        
+                    # # Update the original matrix with the modified submatrix
+                    
+                    # for num_r,i in enumerate(cluster_indices):
+                    #     for num_c,j in enumerate(cluster_indices):
+                    #         adjacency_matrix[i,j] = cluster[num_r,num_c]# we update the adjacency matrix with the modified cluster
 
 
-                adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes_with_clusters, columns=indexes_with_clusters)
-                # plot the graph
-                edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix_df, print_tmp=False)
-                plot_gr(adj = adjacency_matrix_df, edges= edge_index, sample_to_index=sample_to_index_df, print_stats=False, csv_ending = csv_ending)
+                    # Save adjacency_matrix to a CSV file
+                    adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes, columns=indexes) # we use the indexes of the samples to set the row and column names
+                    
+                    
+                    csv_ending = str("hc_") + str(N_PCs) + "PCs_" + str(MIN_EDGES) + "-" + str(MAX_EDGES) + "_edges_bin"                    
+                    
+                    adjacency_matrix_df.to_csv("data/adj_matrices/adj_matrix_"+ csv_ending +".csv", index=True, sep=',')
+                    # print("\nFinal Adjacency_matrix:\n", adjacency_matrix_df)
+
+                    adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes_with_clusters, columns=indexes_with_clusters)
+                    # plot the graph
+                    edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix_df, print_tmp=False)
+                    plot_gr(adj = adjacency_matrix_df, edges= edge_index, sample_to_index=sample_to_index_df, print_stats=False, csv_ending = csv_ending)
+    if not BINARY_EDGES:
+        for cutoff in 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.60:
+            
+            print("Producing weighted edges Adjacency matrix with cutoff value: ", str(cutoff))
+
+            adjacency_matrix = select_edges(sample_similarity_matrix, indexes_with_clusters, cluster_id, cutoff=cutoff, print_tmp=False, binary_edges=False)
+            # print("\nFiltered similarity matrix:\n", adjacency_matrix)
+                    
+            row_sums = np.sum(adjacency_matrix, axis=1)
+            # print("\nNumber of edges per each node after filtering:\n", row_sums)
+
+            print("Sum of edges: ", np.sum(adjacency_matrix))
+            print("Number of (undirected) edges > 0: ", int(np.sum(adjacency_matrix > 0)/2))
+
+            adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes, columns=indexes) # we use the indexes of the samples to set the row and column names
+
+            path = "data/adj_matrices/"
+            csv_ending = str("adj_matrix_hc_") + str(N_PCs) + "PCs_" + "rv_" + "cutoff_" + str(cutoff)
+            full_path = path + csv_ending + ".csv"
+
+            print("Saving the adjacency matrix to: ", full_path, "\n")
+            adjacency_matrix_df.to_csv(full_path, index=True, sep=',')
+            # print("\nFinal Adjacency_matrix:\n", adjacency_matrix_df)
+
+            adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes_with_clusters, columns=indexes_with_clusters)
+            # plot the graph
+            edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix_df, print_tmp=False)
+            plot_gr(adj = adjacency_matrix_df, edges= edge_index, sample_to_index=sample_to_index_df, print_stats=False, csv_ending = csv_ending)
 
 
     # find the highly connected node
