@@ -36,8 +36,9 @@ from torch.nn.functional import elu
 # Things to try: Loss functions (MAE; MSE); Optimizers; Layers
 
 
-
-INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_rv_cutoff_0.07.csv"
+# WEIGHTED adjacency matrix:
+INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_rv_cutoff_0.0.csv"
+# NON-weighted adjacency matrix:
 # INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_25-26_edges.csv"
 
 
@@ -233,7 +234,7 @@ def main():
         # data_try = dataset_try[0]
 
 
-        class GCN(torch.nn.Module):
+        class GCN_weighted(torch.nn.Module):
             def __init__(self, num_node_features, state_dim):
                 super().__init__()
                 # super(GCN, self).__init__()
@@ -259,27 +260,27 @@ def main():
                 
                 return x
 
-        # class GCN(torch.nn.Module):
-        #     def __init__(self, num_node_features, state_dim):
-        #         super().__init__()
-        #         # super(GCN, self).__init__()
-        #         torch.manual_seed(12) #random seed
+        class GCN(torch.nn.Module):
+            def __init__(self, num_node_features, state_dim):
+                super().__init__()
+                # super(GCN, self).__init__()
+                torch.manual_seed(12) #random seed
 
-        #         self.num_node_features = num_node_features
-        #         self.state_dim = state_dim
+                self.num_node_features = num_node_features
+                self.state_dim = state_dim
 
-        #         self.conv1 = GCNConv(self.num_node_features, self.state_dim)
-        #         self.conv2 = GCNConv(self.state_dim, int(self.state_dim/2))
-        #         self.linear = torch.nn.Linear(int(self.state_dim/2),1)
+                self.conv1 = GCNConv(self.num_node_features, self.state_dim)
+                self.conv2 = GCNConv(self.state_dim, int(self.state_dim/2))
+                self.linear = torch.nn.Linear(int(self.state_dim/2),1)
 
-        #     def forward(self, x, edge_index):
-        #         x = self.conv1(x, edge_index)
-        #         x = F.elu(x)
-        #         # x = F.dropout(x, p=0.5, training=self.training)
-        #         x = self.conv2(x, edge_index)
-        #         x = self.linear(x)
+            def forward(self, x, edge_index, edge_weight):
+                x = self.conv1(x, edge_index)
+                x = F.elu(x)
+                # x = F.dropout(x, p=0.5, training=self.training)
+                x = self.conv2(x, edge_index)
+                x = self.linear(x)
 
-        #         return x
+                return x
             
         class GCN_2(torch.nn.Module):
             def __init__(self, num_node_features, state_dim):
@@ -390,7 +391,7 @@ def main():
             
 
         device = 'cpu'
-        model = GCN(num_node_features=data.num_node_features, state_dim=32).to(device) #state_dim=16
+        model = GCN_weighted(num_node_features=data.num_node_features, state_dim=32).to(device) #state_dim=16
         # model = GCN(hidden_channels=64).to(device)
         print(model)
 
@@ -410,7 +411,7 @@ def main():
         # loss_fun = torch.nn.L1Loss()
 
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=4e-4,weight_decay=1e-3) #weight_decay=5e-4)
+        optimizer = torch.optim.Adam(model.parameters(), lr=4e-3,weight_decay=5e-5) #weight_decay=5e-4)
         
         # Learning rate scheduler
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
@@ -476,7 +477,7 @@ def main():
             #     # train_loss += loss.detach().cpu().item() * data.batch_size / len(train_loader.dataset)
             # scheduler.step()
 
-            if epoch % 500 == 0:
+            if epoch % 100 == 0:
                 print(f'Epoch: {epoch:03d}, Learning rate: {scheduler.get_last_lr()[0]:.1e}, Train loss: {losses_train[-1]:.4f}, Validation loss: {losses_val[-1]:.4f}')
 
         
