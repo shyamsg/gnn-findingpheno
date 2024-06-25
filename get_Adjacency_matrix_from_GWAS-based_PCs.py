@@ -45,7 +45,7 @@ def get_similarity_matrix(sample_pcs, n_samples, print_tmp=False):
     max_distance=np.max(dist_matrix)
     if print_tmp: print("\nmax distance between any 2 points: ", max_distance)
     dist_matrix/=max_distance
-    if print_tmp: print("\nMatrix after normalization\n",dist_matrix)
+    if print_tmp: print("\nMatrix after normalization\n", dist_matrix)
 
     # Compute the similarity matrix as 1 - distance
     # sample_similarity_matrix = dist_matrix
@@ -53,7 +53,7 @@ def get_similarity_matrix(sample_pcs, n_samples, print_tmp=False):
     # TODO INSTEAD OF FOCUSING ON SIMILARITY, USE THE DISTANCES: sample_similarity_matrix = dist_matrix
     # We want 0s insted of 1s for the diagonal
     np.fill_diagonal(sample_similarity_matrix, 0)
-    if print_tmp: print("\nMatrix after 1-dist_matrix and 0s in the diagonal operation\n",sample_similarity_matrix)
+    if print_tmp: print("\nMatrix after 1-dist_matrix and 0s in the diagonal operation\n", sample_similarity_matrix)
 
     df = pd.DataFrame(sample_similarity_matrix)
     df.to_csv("data/PCA/sample_similarity_matrix.tsv", sep='\t', index=True, header=True)
@@ -386,7 +386,7 @@ def main():
                     edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix_df, print_tmp=False)
                     plot_gr(adj = adjacency_matrix_df, edges= edge_index, sample_to_index=sample_to_index_df, print_stats=False, csv_ending = csv_ending)
     if not BINARY_EDGES:
-        for cutoff in 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.60:
+        for cutoff in 0.05, 0.07, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.60:
             
             print("Producing weighted edges Adjacency matrix with cutoff value: ", str(cutoff))
 

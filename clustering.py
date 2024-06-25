@@ -39,8 +39,7 @@ def main():
 
     sample_pcs = sample_pcs[sample_pcs.index.isin(T_samples) & sample_pcs.index.isin(MG_samples)]
 
-    print(sample_pcs.shape)
-
+    print("Shape of the sample_pcs:", sample_pcs.shape) 
 
 
     N_PCs = 360 # We have more PCs than samples PCA was run on the original 361 samples (all samples with GWAS data)

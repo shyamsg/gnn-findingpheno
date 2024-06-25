@@ -147,10 +147,10 @@ class MMAE(nn.Module):
 
 
 
-SELECTION_METHOD = "MOGCN-VAE" # "Variance", "Autoencoder", "PCA", "Lasso", "MOGCN-VAE"
+SELECTION_METHOD = "Lasso" #"MOGCN-VAE" # "Variance", "Autoencoder", "PCA", "Lasso", "MOGCN-VAE"
 
-N_FEATURES_TO_USE = 50 # Only used for the Variance method
-ALPHA = 0.01 # Only used for the Lasso method
+N_FEATURES_TO_USE = 50 # VARIANCE method only
+ALPHA = 0.03           # LASSO method only
 
 def main():
 

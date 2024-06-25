@@ -36,9 +36,14 @@ from torch.nn.functional import elu
 # Things to try: Loss functions (MAE; MSE); Optimizers; Layers
 
 
+
+INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_rv_cutoff_0.07.csv"
+# INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_25-26_edges.csv"
+
+
 def main():
     
-    adj_matrix_path = "data/adj_matrices/adj_matrix_hc_360PCs_25-26_edges.csv"
+    adj_matrix_path = INPUT_FILE
     adjacency_matrix = pd.read_csv(adj_matrix_path, header=0, index_col=0)
     file_name = os.path.basename(adj_matrix_path)
 
@@ -108,12 +113,22 @@ def main():
     # Getting Metagenomics and Transcriptomics features in one single object
     MG_T = pd.concat([MG, T], axis=1)
 
+    # MG_T.to_csv("data/output/MG_T_normalized.csv", index=True)
+
+    # MG_T = MG_T.dropna()
+    # MG_T.to_csv("data/output/MG_T_normalized_removeNa.csv", index=True)
+
+    # MG_T = MG_T.loc[samples_ids]
+    # MG_T.to_csv("data/output/MG_T_normalized_SampleIDcheck.csv", index=True)
+    # # breakpoint()
+
+
 
     ### Study correlations between features in matrix MG_T
     # plot_feature_correlation(T)
 
     
-    X = torch.tensor(MG_T.values, dtype=torch.float)
+    X = torch.tensor(MG_T.values, dtype=torch.float32)
     # X = torch.tensor(MG_T_normalized, dtype=torch.float)
     print("X shape: ", X.shape)
 
@@ -123,11 +138,15 @@ def main():
     Pheno = Pheno.loc[samples_ids, "Gutted.Weight.kg"]
 
     # Pheno = MG_T_Ph_filteredSamples[['weight']] 
-    y = torch.tensor(Pheno.values, dtype=torch.float)
+    y = torch.tensor(Pheno.values, dtype=torch.float32)
 
     ### BUILDING THE GRAPH
     edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix, print_tmp=False)
     
+    edge_index = torch.tensor(edge_index, dtype=torch.long)
+    edge_attr = torch.tensor(edge_attr, dtype=torch.float32)
+
+
     # edge_index_df = pd.DataFrame(edge_index.numpy().T, columns=['source', 'target'])
     # sample_to_index_df.to_csv("data/output/sample_to_index_2.csv", index=False)
     # edge_index_df.to_csv("data/output/edge_index_2.csv", index=True)
@@ -163,7 +182,7 @@ def main():
     random.shuffle(shuffled_list) 
 
 
-    NUMBER_RANDOM_SPLITS = 10 # No. CROSS-VALIDATION (CV) splits
+    NUMBER_RANDOM_SPLITS = 5 # No. CROSS-VALIDATION (CV) splits
     all_lists = {}
     for i in range(NUMBER_RANDOM_SPLITS):
         list_name = str("list" + str(i))
@@ -180,8 +199,8 @@ def main():
         all_lists_except_ith = [all_lists[key] for key in all_lists if key != "list" + str(i)]
         union_lists = [element for sublist in all_lists_except_ith for element in sublist]
 
-        train_mask = np.zeros(num_nodes, dtype=bool)
-        val_mask = np.zeros(num_nodes, dtype=bool)
+        train_mask = np.zeros(num_nodes, dtype=bool) #it was 'bool' instead of 'torch.bool'
+        val_mask = np.zeros(num_nodes, dtype=bool) #bool
         train_mask[union_lists] = True
         val_mask[ith_list] = True
 
@@ -190,7 +209,7 @@ def main():
 
 
         ### GRAPH OBJECT
-        data = Data(x=X, edge_index=edge_index, edge_attr=edge_attr, y=y, num_nodes=num_nodes, num_node_features=num_node_features)
+        data = Data(x=X, edge_index=edge_index, edge_weight=edge_attr, y=y, num_nodes=num_nodes, num_node_features=num_node_features)
         
         ## Statistics
         print(f'\nNumber of nodes: {data.num_nodes}')
@@ -223,19 +242,44 @@ def main():
                 self.num_node_features = num_node_features
                 self.state_dim = state_dim
 
-                self.conv1 = GCNConv(self.num_node_features, self.state_dim)
-                self.conv2 = GCNConv(self.state_dim, int(self.state_dim/2))
-                self.linear = torch.nn.Linear(int(self.state_dim/2),1)
 
-            def forward(self, x, edge_index):
-                x = self.conv1(x, edge_index)
+                self.conv1 = GCNConv(self.num_node_features, self.state_dim)
+                self.conv2 = GCNConv(self.state_dim, self.state_dim)
+                self.linear = torch.nn.Linear(int(self.state_dim),1)
+
+            def forward(self, x, edge_index, edge_weight):
+                x = self.conv1(x, edge_index, edge_weight=edge_weight)
+                
                 x = F.elu(x)
                 # x = F.dropout(x, p=0.5, training=self.training)
-                x = self.conv2(x, edge_index)
+                x = self.conv2(x, edge_index, edge_weight=edge_weight)
+                
+                x = F.elu(x)
                 x = self.linear(x)
-
                 
                 return x
+
+        # class GCN(torch.nn.Module):
+        #     def __init__(self, num_node_features, state_dim):
+        #         super().__init__()
+        #         # super(GCN, self).__init__()
+        #         torch.manual_seed(12) #random seed
+
+        #         self.num_node_features = num_node_features
+        #         self.state_dim = state_dim
+
+        #         self.conv1 = GCNConv(self.num_node_features, self.state_dim)
+        #         self.conv2 = GCNConv(self.state_dim, int(self.state_dim/2))
+        #         self.linear = torch.nn.Linear(int(self.state_dim/2),1)
+
+        #     def forward(self, x, edge_index):
+        #         x = self.conv1(x, edge_index)
+        #         x = F.elu(x)
+        #         # x = F.dropout(x, p=0.5, training=self.training)
+        #         x = self.conv2(x, edge_index)
+        #         x = self.linear(x)
+
+        #         return x
             
         class GCN_2(torch.nn.Module):
             def __init__(self, num_node_features, state_dim):
@@ -263,8 +307,6 @@ def main():
 
 
                 return x
-
-            
 
         class GCN_deep(torch.nn.Module):
             def __init__(self, num_node_features, state_dim):
@@ -346,6 +388,7 @@ def main():
 
                 return x #F.log_softmax(x, dim=1)
             
+
         device = 'cpu'
         model = GCN(num_node_features=data.num_node_features, state_dim=32).to(device) #state_dim=16
         # model = GCN(hidden_channels=64).to(device)
@@ -367,16 +410,16 @@ def main():
         # loss_fun = torch.nn.L1Loss()
 
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=6e-5,weight_decay=1e-3) #weight_decay=5e-4)
+        optimizer = torch.optim.Adam(model.parameters(), lr=4e-4,weight_decay=1e-3) #weight_decay=5e-4)
         
         # Learning rate scheduler
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
 
 
         def train(losses_train, losses_val):
-            model.train()
+            model.train() # Set the model to training mode.
             optimizer.zero_grad()  # Clear gradients.
-            out = model(data.x, data.edge_index)  # Perform a single forward pass. ### TODO CHECK, here we use the entire dataset, not just the training set. 
+            out = model(data.x, data.edge_index, data.edge_weight)  # Perform a single forward pass. ### TODO CHECK, here we use the entire dataset, not just the training set. 
             
             out = out.squeeze()
 
@@ -404,7 +447,7 @@ def main():
 
         # variance = torch.var(data.y)
         # print("Variance of y:", variance)
-        epochs = 40000
+        epochs = 5000
 
         # print(y)
         # out = model(data)
@@ -466,7 +509,7 @@ def main():
 
         ### EVALUATION
         model.eval()
-        out = model(data.x, data.edge_index)
+        out = model(data.x, data.edge_index, data.edge_weight)
         out = out.squeeze()
         
         # for predicted, actual  in zip(out, data.y): print(f'Predicted: {predicted.item():.4f}, Actual: {actual.item():.4f}, Difference: {abs(predicted.item()-actual.item()):.4f}')
