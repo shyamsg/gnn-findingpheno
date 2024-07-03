@@ -1,0 +1,40 @@
+---
+title: "plot_distr"
+output: html_document
+date: "2024-06-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#install.packages("ggplot2")
+#install.packages("readr")
+library(ggplot2)
+library(readr)
+```
+
+
+```{r}
+# Read data from CSV files
+data1 <- read_csv("/Users/lorenzoguerci/Documents/GitHub/gnn-findingpheno/data/predictions/pred_adj_matrix_hc_360PCs_rv_cutoff_0.0.csv_CV2.csv", col_names = FALSE)
+data2 <- read_csv("/Users/lorenzoguerci/Documents/GitHub/gnn-findingpheno/data/y_values/true_adj_matrix_hc_360PCs_rv_cutoff_0.0.csv_CV2.csv", col_names = FALSE)
+
+# Assuming the data is in the first column
+data1_values <- data1[[1]]
+data2_values <- data2[[1]]
+
+# Combine the data into a data frame
+data <- data.frame(
+  value = c(data1_values, data2_values),
+  group = factor(rep(c("Predictions", "Real-values"), 
+                     times = c(length(data1_values), length(data2_values))))
+)
+
+# Plot the distributions
+ggplot(data, aes(x = value, fill = group)) +
+  geom_density(alpha = 0.5) +  # Use geom_density() for a density plot
+  labs(title = "Two Distributions", x = "Value", y = "Density") +
+  theme_minimal()
+```

@@ -147,9 +147,9 @@ class MMAE(nn.Module):
 
 
 
-SELECTION_METHOD = "Lasso" #"MOGCN-VAE" # "Variance", "Autoencoder", "PCA", "Lasso", "MOGCN-VAE"
+SELECTION_METHOD = "Variance" #"MOGCN-VAE" # "Variance", "Autoencoder", "PCA", "Lasso", "MOGCN-VAE"
 
-N_FEATURES_TO_USE = 50 # VARIANCE method only
+N_FEATURES_TO_USE = 80 # VARIANCE method only
 ALPHA = 0.03           # LASSO method only
 
 def main():
@@ -206,11 +206,15 @@ def main():
         T_var_selected = T_unfiltered[T_unfiltered.var(axis=0).nlargest(N_FEATURES_TO_USE).index]
         file_name = "data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
         T_var_selected.to_csv(file_name, index=True, sep=',')
+        print("Saved the selected features to a CSV file:", file_name)
+
 
         # Select the top N_FEATURES_TO_USE with the highest variance after scaling/normalizing
         T_var_selected_scaled = T_scaled_df[T_scaled_df.var(axis=0).nlargest(N_FEATURES_TO_USE).index]
         file_name = "data/T_features/T_selected_features_scaled_" + SELECTION_METHOD + ".csv"
         T_var_selected_scaled.to_csv(file_name, index=True, sep=',')
+        print("Saved the selected features to a CSV file:", file_name)
+
 
     if SELECTION_METHOD == "MOGCN-VAE":
 
@@ -314,6 +318,7 @@ def main():
         selected_features_df = T_unfiltered[selected_features].sort_index()
         file_name = "data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
         selected_features_df.to_csv(file_name, index=True, sep=',')
+
     
 
 if __name__ == "__main__":

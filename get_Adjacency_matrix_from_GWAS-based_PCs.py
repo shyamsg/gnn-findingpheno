@@ -385,7 +385,7 @@ def main():
                     # plot the graph
                     edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix_df, print_tmp=False)
                     plot_gr(adj = adjacency_matrix_df, edges= edge_index, sample_to_index=sample_to_index_df, print_stats=False, csv_ending = csv_ending)
-    if not BINARY_EDGES:
+    if not BINARY_EDGES: # REAL VALUES
         for cutoff in 0.00, 0.05, 0.07, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.60:
             
             print("Producing weighted edges Adjacency matrix with cutoff value: ", str(cutoff))
@@ -402,7 +402,7 @@ def main():
             adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes, columns=indexes) # we use the indexes of the samples to set the row and column names
 
             path = "data/adj_matrices/"
-            csv_ending = str("adj_matrix_hc_") + str(N_PCs) + "PCs_" + "rv_" + "cutoff_" + str(cutoff)
+            csv_ending = str("adj_matrix_hc_") + str(N_PCs) + "PCs_" + "rv_" + str(cutoff)
             full_path = path + csv_ending + ".csv"
 
             print("Saving the adjacency matrix to: ", full_path, "\n")

@@ -20,6 +20,8 @@ from sklearn.preprocessing import MinMaxScaler
 import random
 
 from torch.nn.functional import elu
+import csv
+import pandas as pd
 
 """
  Implementing a Graph Convolutional Network (GCN) for node classification
@@ -37,7 +39,7 @@ from torch.nn.functional import elu
 
 
 # WEIGHTED adjacency matrix:
-INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_rv_cutoff_0.0.csv"
+INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_rv_cutoff_0.07.csv"
 # NON-weighted adjacency matrix:
 # INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_25-26_edges.csv"
 
@@ -55,7 +57,7 @@ def main():
 
 
 
-    ### METAGENOMIC AND TRANSCRIPTOMIC FEATURES
+    ### INPUT: METAGENOMIC AND TRANSCRIPTOMIC FEATURES
     
     ### T10
     # MG_T_Ph_f = pd.read_csv("data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
@@ -94,7 +96,11 @@ def main():
     ## 10 features from Dylan
     # T_10 = MG_T_Ph_filteredSamples.loc[:,~MG_T_Ph_filteredSamples.columns.str.startswith(('MAG', 'weight', 'size'))] # Keeping the 10 original (from Dylan) transcriptomic features
     ## T features selected by Lasso/Variance/Autoencoder/PCA
-    T_selected = pd.read_csv("data/T_features/T_selected_features_Lasso.csv", header=0, index_col=0) # Lasso, Variance, Autoencoder, PCA - selected features
+    
+    T_FILE = "Variance" # Lasso, Variance, Autoencoder, PCA, scaled_Variance
+    
+    T_path = "T_selected_features_" + T_FILE + ".csv"
+    T_selected = pd.read_csv(os.path.join("data/T_features/", T_path), header=0, index_col=0) 
 
     # Remove the T features that are in both T_10 and T_selected
     # T_selected = T_selected.rename(columns=lambda x: x.split("+")[-1], inplace=False)
@@ -112,7 +118,7 @@ def main():
     # T = pd.DataFrame(standard_scaler.fit_transform(T), index=T.index, columns=T.columns)
 
     # Getting Metagenomics and Transcriptomics features in one single object
-    MG_T = pd.concat([MG, T], axis=1)
+    MG_T = T #pd.concat([MG, T], axis=1)
 
     # MG_T.to_csv("data/output/MG_T_normalized.csv", index=True)
 
@@ -242,7 +248,6 @@ def main():
 
                 self.num_node_features = num_node_features
                 self.state_dim = state_dim
-
 
                 self.conv1 = GCNConv(self.num_node_features, self.state_dim)
                 self.conv2 = GCNConv(self.state_dim, self.state_dim)
@@ -448,7 +453,7 @@ def main():
 
         # variance = torch.var(data.y)
         # print("Variance of y:", variance)
-        epochs = 5000
+        epochs = 10000
 
         # print(y)
         # out = model(data)
@@ -512,18 +517,34 @@ def main():
         model.eval()
         out = model(data.x, data.edge_index, data.edge_weight)
         out = out.squeeze()
+
+
+        def save_values(out, y, file_name, i, mask=None):
+            if val_mask is not None:
+                out_array_df = pd.DataFrame(out[val_mask].detach().numpy())
+                out_array_df.to_csv("data/predictions/pred_" + file_name + "_CV{}.csv".format(i+1), index=False, header=False)
+                y_df= pd.DataFrame(y[val_mask].detach().numpy())
+                y_df.to_csv("data/y_values/true_" + file_name + "_CV{}.csv".format(i+1), index=False, header=False)
+            else:
+                out_array_df = pd.DataFrame(out.detach().numpy())
+                out_array_df.to_csv("data/predictions/pred_" + file_name + "_CV.csv", index=False, header=False)
+                y_df= pd.DataFrame(y.detach().numpy())
+                y.to_csv("data/y_values/true_" + file_name + "_CV.csv", index=False, header=False)
+            
+        
+        save_values(out, data.y, file_name, i, mask=val_mask)
+
         
         # for predicted, actual  in zip(out, data.y): print(f'Predicted: {predicted.item():.4f}, Actual: {actual.item():.4f}, Difference: {abs(predicted.item()-actual.item()):.4f}')
         print("Avg difference: \n",np.mean(np.abs(out.detach().numpy() - data.y.detach().numpy())))
         print('Max difference: \n', np.max(np.abs(out.detach().numpy() - data.y.detach().numpy())))
-
 
         # print("Avg difference (train): \n",np.mean(np.abs(out[train_mask].detach().numpy() - data.y[train_mask].detach().numpy())))
         print("Avg difference (val): \n",np.mean(np.abs(out[val_mask].detach().numpy() - data.y[val_mask].detach().numpy())))
         print('Max difference (val): \n', np.max(np.abs(out[val_mask].detach().numpy() - data.y[val_mask].detach().numpy())))
 
 
-        # Plotting the loss over epochs
+        ### Plotting the loss over epochs
         plt.plot(range(epochs), losses_train, label='Training loss')
         plt.plot(range(epochs), losses_val, label='Validation loss')
         plt.xlabel('Epochs')
@@ -532,8 +553,15 @@ def main():
         plt.ylim(0, 4)  # Set the y-axis limits
         plt.legend()
         # plt.show()
-        name_fig = "/Users/lorenzoguerci/Desktop/losses/" + file_name + "_losses_CV{}.png".format(i+1)
-        plt.savefig(str(name_fig)) 
+        # breakpoint()
+
+
+        name_fig = "data/losses/" + str(file_name)[:-4] + "_" + str(T_FILE) + str(T.shape[1]) +  "_loss_CV{}.png".format(i+1)
+        name_fig = "data/losses/" + str(file_name)[:-4] + "_" "MG_only" +  "_loss_CV{}.png".format(i+1)
+        name_fig = "data/losses/" + str(file_name)[:-4] + "_" + str(T_FILE) + str(T.shape[1]) + "_T_only"  "_loss_CV{}.png".format(i+1)
+
+
+        plt.savefig(str(name_fig))
 
         plt.close()
 
