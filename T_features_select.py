@@ -17,7 +17,7 @@ from sklearn.feature_selection import SelectFromModel
 from sklearn.preprocessing import MinMaxScaler
 
 import torch.utils.data as Data
-
+import requests
 
 def normalize_data(data):
     sample_ids = data.index
@@ -147,9 +147,9 @@ class MMAE(nn.Module):
 
 
 
-SELECTION_METHOD = "Variance" #"MOGCN-VAE" # "Variance", "Autoencoder", "PCA", "Lasso", "MOGCN-VAE"
+SELECTION_METHOD = "kegg" #"Variance" #"MOGCN-VAE" # "Variance", "Autoencoder", "PCA", "Lasso", "MOGCN-VAE"
 
-N_FEATURES_TO_USE = 80 # VARIANCE method only
+N_FEATURES_TO_USE = 500 # VARIANCE method only
 ALPHA = 0.03           # LASSO method only
 
 def main():
@@ -289,11 +289,8 @@ def main():
 
         X = T_unfiltered # Features
         y = Pheno # Target
-
-
         
         X = normalize_data(X)
-
         
         # Create a Lasso regression object with a high alpha value
         lasso = Lasso(alpha=ALPHA, max_iter=1000)
@@ -319,7 +316,42 @@ def main():
         file_name = "data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
         selected_features_df.to_csv(file_name, index=True, sep=',')
 
-    
+    if SELECTION_METHOD == "kegg":
+        # Load the KEGG pathways
+        # kegg = pd.read_csv("data/T_features/KEGG_pathways.csv", header=0, index_col=0)
+        # kegg = kegg.loc[T_unfiltered.columns]
+        # kegg = kegg.dropna()
+
+        import requests
+
+        def get_enzymes_for_pathway(pathway_id):
+            url = f"https://rest.kegg.jp/link/enzyme/{pathway_id}"
+            response = requests.get(url)
+            
+            # Print the raw response to see if there’s any data returned
+            print("Raw response text:")
+            print(response.text)  # Show the raw text for debugging
+
+
+            if response.ok:
+                # Process lines and handle potential format issues
+                enzymes = []
+                for line in response.text.strip().split("\n"):
+                    parts = line.split("\t")
+                    if len(parts) > 1:
+                        enzymes.append(parts[1].strip())  # Extract enzyme ID
+                return enzymes
+            else:
+                print(f"Error fetching enzymes for pathway {pathway_id}")
+                return []
+
+        # Example usage for Glycolysis pathway
+        pathway_id = "hsa00010"  # KEGG pathway ID for human glycolysis
+        enzymes = get_enzymes_for_pathway(pathway_id)
+
+        print("Enzymes in pathway", pathway_id)
+        print(enzymes)
+
 
 if __name__ == "__main__":
     main()

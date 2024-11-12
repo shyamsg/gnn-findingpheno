@@ -43,6 +43,9 @@ INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_rv_cutoff_0.07.csv"
 # NON-weighted adjacency matrix:
 # INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_25-26_edges.csv"
 
+# Decide whether you want to restrict the feature space to T or MG only 
+T_ONLY = False
+MG_ONLY = False
 
 def main():
     
@@ -97,9 +100,9 @@ def main():
     # T_10 = MG_T_Ph_filteredSamples.loc[:,~MG_T_Ph_filteredSamples.columns.str.startswith(('MAG', 'weight', 'size'))] # Keeping the 10 original (from Dylan) transcriptomic features
     ## T features selected by Lasso/Variance/Autoencoder/PCA
     
-    T_FILE = "Variance" # Lasso, Variance, Autoencoder, PCA, scaled_Variance
+    T_selection_algorithm = "Variance" # Lasso, Variance, Autoencoder, PCA, scaled_Variance
     
-    T_path = "T_selected_features_" + T_FILE + ".csv"
+    T_path = "T_selected_features_" + T_selection_algorithm + ".csv"
     T_selected = pd.read_csv(os.path.join("data/T_features/", T_path), header=0, index_col=0) 
 
     # Remove the T features that are in both T_10 and T_selected
@@ -118,7 +121,9 @@ def main():
     # T = pd.DataFrame(standard_scaler.fit_transform(T), index=T.index, columns=T.columns)
 
     # Getting Metagenomics and Transcriptomics features in one single object
-    MG_T = T #pd.concat([MG, T], axis=1)
+    MG_T = pd.concat([MG, T], axis=1)
+    if MG_ONLY: MG_T = MG
+    if T_ONLY: MG_T = T
 
     # MG_T.to_csv("data/output/MG_T_normalized.csv", index=True)
 
@@ -146,6 +151,7 @@ def main():
 
     # Pheno = MG_T_Ph_filteredSamples[['weight']] 
     y = torch.tensor(Pheno.values, dtype=torch.float32)
+
 
     ### BUILDING THE GRAPH
     edge_index, edge_attr, sample_to_index_df = get_edges_from_adjacency(adjacency_matrix, print_tmp=False)
@@ -556,9 +562,16 @@ def main():
         # breakpoint()
 
 
-        name_fig = "data/losses/" + str(file_name)[:-4] + "_" + str(T_FILE) + str(T.shape[1]) +  "_loss_CV{}.png".format(i+1)
-        name_fig = "data/losses/" + str(file_name)[:-4] + "_" "MG_only" +  "_loss_CV{}.png".format(i+1)
-        name_fig = "data/losses/" + str(file_name)[:-4] + "_" + str(T_FILE) + str(T.shape[1]) + "_T_only"  "_loss_CV{}.png".format(i+1)
+        name_fig_base = "data/losses/" + str(file_name)[:-4]
+
+        if MG_ONLY: name_fig = name_fig_base + "_" "MG_only" +  "_loss_CV{}.png".format(i+1)
+        else:
+            name_fig = name_fig_base + "_" + str(T_selection_algorithm) + str(T.shape[1])
+            if T_ONLY: name_fig = name_fig + "_T_only"
+            name_fig = name_fig + "_loss_CV{}.png".format(i+1)
+
+        # 
+        # name_fig = "data/losses/" + str(file_name)[:-4] + "_" + str(T_selection_algorithm) + str(T.shape[1]) + "_T_only"  "_loss_CV{}.png".format(i+1)
 
 
         plt.savefig(str(name_fig))

@@ -11,6 +11,7 @@ from similarity_graph_utilities import plot_gr
 
 
 BINARY_EDGES = False
+N_PCs = 360 # Defined after using the R script (see google colab)
 
 
 def get_similarity_matrix(sample_pcs, n_samples, print_tmp=False):
@@ -252,7 +253,6 @@ def filter(adj_matrix):
 
 
 
-N_PCs = 360 # Defined after using the R script (see google colab)
 
 
 def main():
@@ -325,7 +325,7 @@ def main():
     rows, cols = sample_similarity_matrix.shape
     # Extract the upper diagonal elements into a vector
     upper_diag_vector = sample_similarity_matrix[np.triu_indices(rows, k=1)]
-    analyze_similarity(upper_diag_vector) # UNCOMMENT to plot a histogram of similarity-based edges distribution in order to choose a cutoff value
+    # analyze_similarity(upper_diag_vector) # UNCOMMENT to plot a histogram of similarity-based edges distribution in order to choose a cutoff value
     CUTOFF = 0.20 # we choose a cutoff value based on the histogram of the similarity-based edges distribution
 
 
