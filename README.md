@@ -20,6 +20,5 @@ Pipeline:
     OUTPUT: data/adj_matrices/" + str("adj_matrix_hc_") + str(N_PCs) + "PCs_" + "rv_" + str(cutoff)
 
 (3)GCN_nodePred_similarityMatrix.py
-    INPUT: data/adj_matrices/[SPECIFIC_ADJ_FILE], data/HoloFish_MetaG_MeanCoverage_20221114.csv (MG), T_selected_features_[T_SELECTION_ALGORTIHM] (T), data/HoloFish_FishVariables_20221116.csv (Pheno)
+    INPUT: data/adj_matrices/SPECIFIC_ADJ_FILE, data/HoloFish_MetaG_MeanCoverage_20221114.csv (MG), T_selected_features_T_SELECTION_ALGORTIHM (T), data/HoloFish_FishVariables_20221116.csv (Pheno)
     OUTPUT: predictions, loss
-
