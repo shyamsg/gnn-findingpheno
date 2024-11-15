@@ -39,7 +39,7 @@ import pandas as pd
 
 
 # WEIGHTED adjacency matrix:
-INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_rv_cutoff_0.07.csv"
+INPUT_FILE = "data/adj_matrices/adj_matrix_hc_132PCs_rv_0.1.csv"
 # NON-weighted adjacency matrix:
 # INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_25-26_edges.csv"
 
@@ -60,9 +60,9 @@ def main():
 
 
 
-    ### INPUT: METAGENOMIC AND TRANSCRIPTOMIC FEATURES
+    ### INPUT: METAGENOMIC AND TRANSCRIPTOMIC FEATURES -> X
     
-    ### T10
+    ### T10 (10 features from Dylan and)
     # MG_T_Ph_f = pd.read_csv("data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
     # MG_T_Ph_filteredSamples = MG_T_Ph_f.loc[adjacency_matrix.index] # get the samples with metagenomics and transcriptomics data that are in the adjacency matrix
 
@@ -73,7 +73,7 @@ def main():
     
     ### METAGENOME
     MG = pd.read_csv("data/HoloFish_MetaG_MeanCoverage_20221114.csv", header=0, index_col=0)
-    MG = MG.loc[samples_ids, MG.columns.str.startswith('MAG')]
+    MG = MG.loc[samples_ids, MG.columns.str.startswith('MAG')] 
 
 
     def normalize_data(data):
@@ -100,9 +100,9 @@ def main():
     # T_10 = MG_T_Ph_filteredSamples.loc[:,~MG_T_Ph_filteredSamples.columns.str.startswith(('MAG', 'weight', 'size'))] # Keeping the 10 original (from Dylan) transcriptomic features
     ## T features selected by Lasso/Variance/Autoencoder/PCA
     
-    T_selection_algorithm = "Variance" # Lasso, Variance, Autoencoder, PCA, scaled_Variance
+    T_SELECTION_ALGORITHM = "Variance" # Lasso, Variance, Autoencoder, PCA, scaled_Variance
     
-    T_path = "T_selected_features_" + T_selection_algorithm + ".csv"
+    T_path = "T_selected_features_" + T_SELECTION_ALGORITHM + ".csv"
     T_selected = pd.read_csv(os.path.join("data/T_features/", T_path), header=0, index_col=0) 
 
     # Remove the T features that are in both T_10 and T_selected
@@ -121,10 +121,8 @@ def main():
     # T = pd.DataFrame(standard_scaler.fit_transform(T), index=T.index, columns=T.columns)
 
     # Getting Metagenomics and Transcriptomics features in one single object
-    MG_T = pd.concat([MG, T], axis=1)
-    if MG_ONLY: MG_T = MG
-    if T_ONLY: MG_T = T
-
+    MG_T = MG if MG_ONLY else T if T_ONLY else pd.concat([MG, T], axis=1)
+    
     # MG_T.to_csv("data/output/MG_T_normalized.csv", index=True)
 
     # MG_T = MG_T.dropna()
@@ -135,16 +133,28 @@ def main():
     # # breakpoint()
 
 
-
     ### Study correlations between features in matrix MG_T
     # plot_feature_correlation(T)
 
-    
+
     X = torch.tensor(MG_T.values, dtype=torch.float32)
     # X = torch.tensor(MG_T_normalized, dtype=torch.float)
-    print("X shape: ", X.shape)
+    print("X shape (features selected from our script T_features_select.py): ", X.shape)
 
 
+    ##### IMPORTANT: USING KEGG PATHWAYS AS FEATURES
+
+    # T = pd.read_csv("data/kegg/fatty_scaled.csv", header=0, index_col=0)
+    # T = T.loc[samples_ids]
+
+    T_MG = pd.read_csv("data/kegg/scaled_input_fatty.csv", header=0, index_col=0)
+    T_MG = T_MG.loc[samples_ids]
+    X = torch.tensor(T_MG.values, dtype=torch.float32)
+    print("X shape (features selected from KEGG): ", X.shape)
+
+
+
+    ### PHENOTYPE -> y
 
     Pheno = pd.read_csv("data/HoloFish_FishVariables_20221116.csv", header=0, index_col=0)
     Pheno = Pheno.loc[samples_ids, "Gutted.Weight.kg"]
@@ -566,12 +576,12 @@ def main():
 
         if MG_ONLY: name_fig = name_fig_base + "_" "MG_only" +  "_loss_CV{}.png".format(i+1)
         else:
-            name_fig = name_fig_base + "_" + str(T_selection_algorithm) + str(T.shape[1])
+            name_fig = name_fig_base + "_" + str(T_SELECTION_ALGORITHM) + str(T.shape[1])
             if T_ONLY: name_fig = name_fig + "_T_only"
             name_fig = name_fig + "_loss_CV{}.png".format(i+1)
 
         # 
-        # name_fig = "data/losses/" + str(file_name)[:-4] + "_" + str(T_selection_algorithm) + str(T.shape[1]) + "_T_only"  "_loss_CV{}.png".format(i+1)
+        # name_fig = "data/losses/" + str(file_name)[:-4] + "_" + str(T_SELECTION_ALGORITHM) + str(T.shape[1]) + "_T_only"  "_loss_CV{}.png".format(i+1)
 
 
         plt.savefig(str(name_fig))

@@ -9,9 +9,9 @@ import matplotlib.pyplot as plt
 from similarity_graph_utilities import get_edges_from_adjacency
 from similarity_graph_utilities import plot_gr
 
-
-BINARY_EDGES = False
-N_PCs = 360 # Defined after using the R script (see google colab)
+###!!! Parameters of the script:
+BINARY_EDGES = False # if True, the edges are binarized (0 or 1), if False, the edge weights are kept as they are (real values)
+N_PCs = 132 # Defined after using the R script, 8/48/132 for 25/50/75 explained variance
 
 
 def get_similarity_matrix(sample_pcs, n_samples, print_tmp=False):
@@ -20,7 +20,7 @@ def get_similarity_matrix(sample_pcs, n_samples, print_tmp=False):
     Eucledian distance: based on normal distribution. Natural connection between Gaussian kernels and Euclinead distance
 
     Parameters:
-    - parameter1 (type): Description of parameter1
+    - sample_pcs (numpy.ndarray): matrix n_samples x n_PCs whose values represent the principal components.
     
     Returns:
     - return: Sample_similarity_matrix
@@ -106,7 +106,7 @@ def select_edges(sample_similarity_matrix, indexes, cluster_id, cutoff, min_edge
     - filtered_similarity_matrix
     """
 
-    MAX_CLUSTER_DIM = 10
+    LIMIT_NUM_EDGES_FOR_CLUSTERS_SIZE = 10 
 
     # save_path = "data/tmp_bfr.csv"
     # df = pd.DataFrame(sample_similarity_matrix)
@@ -118,8 +118,9 @@ def select_edges(sample_similarity_matrix, indexes, cluster_id, cutoff, min_edge
         indexes_cluster_only = [index.split("_")[1] for index in indexes]
 
         unique_cluster_ids, counts = np.unique(indexes_cluster_only, return_counts=True)
-        clusters_to_reduce = unique_cluster_ids[np.where(counts > MAX_CLUSTER_DIM)].astype(int)
+        clusters_to_reduce = unique_cluster_ids[np.where(counts > LIMIT_NUM_EDGES_FOR_CLUSTERS_SIZE)].astype(int) # select the clusters with more than LIMIT_NUM_EDGES_FOR_CLUSTERS_SIZE elements
         print("Clusters to reduce: ", clusters_to_reduce)
+        if clusters_to_reduce.size == 0: print("No clusters to reduce")
 
 
         MAX_EDGES_WITHIN_CLUSTERS = 1 # we keep only the top connection for each node within the (highly connected) cluster
@@ -254,17 +255,16 @@ def filter(adj_matrix):
 
 
 
-
 def main():
 
     # sample_pcs = pd.read_excel("data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)
     sample_pcs = pd.read_csv("data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)
-    # print(sample_pcs)
+    print("INPUT SHAPE:", sample_pcs.shape)
 
-    # COUNT THE NUMBER OF SAMPLES PER EACH CLUSTER
-    sample_pcs = pd.DataFrame(sample_pcs)
-    counts_groupby_size = sample_pcs.groupby('cluster_id').size().reset_index(name='count')
-    counts_groupby_size = counts_groupby_size[counts_groupby_size['count'] > 3]
+    ## COUNT THE NUMBER OF SAMPLES PER EACH CLUSTER
+    # sample_pcs = pd.DataFrame(sample_pcs)
+    # counts_groupby_size = sample_pcs.groupby('cluster_id').size().reset_index(name='count')
+    # counts_groupby_size = counts_groupby_size[counts_groupby_size['count'] > 3]
     # print(counts_groupby_size)
 
     ## removing a specific sample
@@ -329,7 +329,7 @@ def main():
     CUTOFF = 0.20 # we choose a cutoff value based on the histogram of the similarity-based edges distribution
 
 
-    print("cutoff matrix:\n",sum(sample_similarity_matrix > CUTOFF)) # shape will be (n_samples,)
+    # print("cutoff matrix:\n",sum(sample_similarity_matrix > CUTOFF)) # shape will be (n_samples,)
     
     if BINARY_EDGES:
         for MIN_EDGES in 1,3,4,5,6,7,8,9,10,11,12,13,14,15,17,20,25,30:
@@ -396,8 +396,8 @@ def main():
             row_sums = np.sum(adjacency_matrix, axis=1)
             # print("\nNumber of edges per each node after filtering:\n", row_sums)
 
-            print("Sum of edges: ", np.sum(adjacency_matrix))
-            print("Number of (undirected) edges > 0: ", int(np.sum(adjacency_matrix > 0)/2))
+            print("Sum of all edge weights: ", np.sum(adjacency_matrix))
+            print("Number of (undirected) non-zero edges: ", int(np.sum(adjacency_matrix > 0)/2))
 
             adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes, columns=indexes) # we use the indexes of the samples to set the row and column names
 

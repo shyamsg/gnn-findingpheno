@@ -178,7 +178,7 @@ def main():
     ### PHENOTYPE
     # MG_T_Ph_f = pd.read_csv("data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
     # Pheno = MG_T_Ph_f.loc[T_unfiltered.index, "weight"] # get the samples with metagenomics and transcriptomics data that are in the adjacency matrix
-    # We removed the above lines: NOW WE PROCESS P SEPARETELY from MG and T! (see also clustering.py)
+    # We removed the above lines: WE decided to PROCESS P SEPARETELY from MG and T! (see also clustering.py)
 
     Pheno = pd.read_csv("data/HoloFish_FishVariables_20221116.csv", header=0, index_col=0)
     Pheno = Pheno.loc[T_unfiltered.index, "Gutted.Weight.kg"]
