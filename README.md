@@ -9,11 +9,11 @@ Colab away [![Open In Colab](https://colab.research.google.com/assets/colab-badg
 Pipeline:
 
 (1a) clustering.py:  Filter samples to use in the analysis:<br>
-*INPUT: data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx
-*OUTPUT: data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv
+* INPUT: data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx
+* OUTPUT: data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv
 (1b) T_features_select.py:   Select Trascriptome features
-    INPUT: data/HoloFish_HostRNA_normalised_GeneCounts_230117.csv
-    OUTPUT: data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
+* INPUT: data/HoloFish_HostRNA_normalised_GeneCounts_230117.csv
+* OUTPUT: data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
 
 (2) get_Adjacency_matrix_from_GWAS-based_PCs.py: Get the ADJACENCT MATRIX to obtain the GCN-graph 
     INPUT: data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv
