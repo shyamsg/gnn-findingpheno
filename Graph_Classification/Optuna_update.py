@@ -1,4 +1,4 @@
- import optuna
+import optuna
 import pandas as pd
 import numpy as np
 import torch
@@ -28,7 +28,7 @@ labels = torch.tensor(labels_numerical, dtype=torch.long)
 adjacency_df = pd.read_csv(adjacency_file)
 gene_names = features_df.columns[1:]
 
-gene1_indices = adjacency_df['Gene1'].apply(lambda x: gene_names.get_loc(x)).values
+gene1_indices = adjacency_df['Gene1'].apply(lambda x: gene_names.get_loc(x)).values # 
 gene2_indices = adjacency_df['Gene2'].apply(lambda x: gene_names.get_loc(x)).values
 edges = torch.tensor(np.array([gene1_indices, gene2_indices]), dtype=torch.long)
 edge_weights = torch.tensor(adjacency_df['Distance'].values, dtype=torch.float)

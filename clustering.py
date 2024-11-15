@@ -17,7 +17,7 @@ from sklearn.linear_model import LinearRegression
 
 
 CLUSTERING_METHOS = "Hierarchical" # "K-means", "Hierarchical", "DBSCAN
-MAX_POINTS_SELECTED_PER_CLUSTER = 40 # Must be >=1
+MAX_POINTS_SELECTED_PER_CLUSTER = 5 # Must be >=1
 
 
 def plot_dendrogram(Z, title="Hierarchical Clustering Dendrogram"):
@@ -43,8 +43,8 @@ def main():
 
     print("Shape of sample_pcs (samplex x PCs):", sample_pcs.shape)
 
-    N_PCs = sample_pcs.shape[1] # We have more PCs than samples. PCA was run on the original 361 samples (all samples with GWAS data), but we have fewer samples that have both metagenomics and transcriptomics data
-    # N_PCs = 100
+    # N_PCs = sample_pcs.shape[1] # We have more PCs than samples. PCA was run on the original 361 samples (all samples with GWAS data), but we have fewer samples that have both metagenomics and transcriptomics data
+    N_PCs = 132
 
     sample_pcs = sample_pcs.iloc[:,0:N_PCs]
 
@@ -78,6 +78,8 @@ def main():
 
     if CLUSTERING_METHOS == "Hierarchical":
 
+        THRESHOLD = 500 # Adjust as needed
+
         ### Hierarchical clustering ############
         ### To aggregate points that are very close to each other into their average, you can use hierarchical clustering to identify clusters of closely located points and then compute the average for each cluster
         
@@ -86,9 +88,8 @@ def main():
 
         plot_dendrogram(Z)
         
-        # Determine clusters based on a distance threshold
-        threshold = 1050  # Adjust as needed
-        clusters = fcluster(Z, threshold, criterion='distance')
+        # Determine clusters based on a distance THRESHOLD
+        clusters = fcluster(Z, THRESHOLD, criterion='distance')
         # Aggregate points within each cluster
         cluster_counts = np.bincount(clusters)[1:]
         print("Number of points in each cluster:\n", cluster_counts) # Number of points in each cluster
@@ -134,7 +135,7 @@ def main():
 
         Z = linkage(sample_pcs_d, method='average')
         plot_dendrogram(Z, title="Hierarchical Clustering Dendrogram after selecting at most the furthest {} points per cluster".format(MAX_POINTS_SELECTED_PER_CLUSTER))
-        clusters = fcluster(Z, threshold, criterion='distance')
+        clusters = fcluster(Z, THRESHOLD, criterion='distance')
         cluster_counts = np.bincount(clusters)[1:]
         print("Number of points in each cluster:\n", cluster_counts) # Number of points in each cluster
         print("Number of clusters: ", len(cluster_counts))
@@ -178,7 +179,7 @@ def main():
 
         
         # Calculate R2 correlation value between PC values and weight
-        X = samples_pheno_matrix[:, :199]  # PC1 and PC2 values
+        X = samples_pheno_matrix[:, :132]  # PC1 and PC2 values, the last column is the weight!! You need to exclude it here
         y = samples_pheno_matrix[:, -1]  # Weight values
 
         # Fit a linear regression model
@@ -191,10 +192,7 @@ def main():
         # Calculate the R2 score
         r2 = r2_score(y, y_pred)
         print("R2 correlation value between PC values and weight:", r2)
-
-        # breakpoint()
         
-
         # We can repeat this process iteratively to further reduce the number of points. We get to a point where each cluster contains exactly 1 point except for one cluster, which contains the remaining points. We keep only one point for this cluster. Then repeat.
 
         print("Final shape:", sample_pcs_d.shape) # There is one additional column because we added the cluster_id column, that's why the shape is (samplex x PCs + 1)
