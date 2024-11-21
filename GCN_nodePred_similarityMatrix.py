@@ -40,19 +40,21 @@ import pandas as pd
 
 # WEIGHTED adjacency matrix:
 # INPUT_FILE = "data/adj_matrices/adj_matrix_hc_132PCs_rv_0.1.csv"
-INPUT_FILE = "data/adj_matrices/adj_matrix_hc_2PCs_rv_0.3.csv"
+ADJ_MATRIX_FILE = "data/adj_matrices/adj_matrix_hc_8PCs_rv_0.6.csv"
 # NON-weighted adjacency matrix:
 # INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_25-26_edges.csv"
 
-# Decide whether you want to restrict the feature space to T or MG only 
+# Decide whether you want to restrict the feature space to T or MG only
 T_ONLY = False
 MG_ONLY = False
 
+T_SELECTION_ALGORITHM = "Variance" # Lasso, Variance, Autoencoder, PCA, scaled_Variance
+    
+
 def main():
     
-    adj_matrix_path = INPUT_FILE
-    adjacency_matrix = pd.read_csv(adj_matrix_path, header=0, index_col=0)
-    file_name = os.path.basename(adj_matrix_path)
+    adjacency_matrix = pd.read_csv(ADJ_MATRIX_FILE, header=0, index_col=0)
+    file_name = os.path.basename(ADJ_MATRIX_FILE)
 
     samples_ids = adjacency_matrix.index
     
@@ -72,67 +74,69 @@ def main():
     # MG_T = MG_T_filteredSamples
     # MG = MG_T_Ph_f.loc[:, MG_T_Ph_filteredSamples.columns.str.startswith('MAG')]
     
-    ### METAGENOME
-    MG = pd.read_csv("data/HoloFish_MetaG_MeanCoverage_20221114.csv", header=0, index_col=0)
-    MG = MG.loc[samples_ids, MG.columns.str.startswith('MAG')] 
+    # ### METAGENOME
+    # MG = pd.read_csv("data/HoloFish_MetaG_MeanCoverage_20221114.csv", header=0, index_col=0)
+    # MG = MG.loc[samples_ids, MG.columns.str.startswith('MAG')] 
 
 
-    def normalize_data(data):
-        sample_ids = data.index
-        feature_names = data.columns
-        data_matrix = data.values
-        scaler = MinMaxScaler()
-        scaled_matrix = scaler.fit_transform(data_matrix)
-        scaled_data = pd.DataFrame(scaled_matrix, index=sample_ids, columns=feature_names)
-        return scaled_data
+    # def normalize_data(data):
+    #     sample_ids = data.index
+    #     feature_names = data.columns
+    #     data_matrix = data.values
+    #     scaler = MinMaxScaler()
+    #     scaled_matrix = scaler.fit_transform(data_matrix)
+    #     scaled_data = pd.DataFrame(scaled_matrix, index=sample_ids, columns=feature_names)
+    #     return scaled_data
 
+    # MG = normalize_data(MG)
     
-    MG = normalize_data(MG)
+    # # OLD NORMALIZATION:
+    # # MG = pd.DataFrame(normalize(MG, norm='l2', axis=1), index=MG.index, columns=MG.columns)
+    # # standard_scaler = StandardScaler()
+    # # MG = pd.DataFrame(standard_scaler.fit_transform(MG), index=MG.index, columns=MG.columns)
+
+
+    # ### TRANSCRIPTOME
+    # ## 10 features from Dylan
+    # # T_10 = MG_T_Ph_filteredSamples.loc[:,~MG_T_Ph_filteredSamples.columns.str.startswith(('MAG', 'weight', 'size'))] # Keeping the 10 original (from Dylan) transcriptomic features
+    # ## T features selected by Lasso/Variance/Autoencoder/PCA
     
-    # OLD NORMALIZATION:
-    # MG = pd.DataFrame(normalize(MG, norm='l2', axis=1), index=MG.index, columns=MG.columns)
-    # standard_scaler = StandardScaler()
-    # MG = pd.DataFrame(standard_scaler.fit_transform(MG), index=MG.index, columns=MG.columns)
+    # T_path = "T_selected_features_" + T_SELECTION_ALGORITHM + ".csv"
+    # T_selected = pd.read_csv(os.path.join("data/T_features/", T_path), header=0, index_col=0) 
 
+    # # Remove the T features that are in both T_10 and T_selected
+    # # T_selected = T_selected.rename(columns=lambda x: x.split("+")[-1], inplace=False)
+    # # columns_toremove = T_selected.columns.intersection(T_10.columns)
+    # # T_selected_filtered = T_selected.drop(columns=columns_toremove)
 
-
-    ### TRANSCRIPTOME
-    ## 10 features from Dylan
-    # T_10 = MG_T_Ph_filteredSamples.loc[:,~MG_T_Ph_filteredSamples.columns.str.startswith(('MAG', 'weight', 'size'))] # Keeping the 10 original (from Dylan) transcriptomic features
-    ## T features selected by Lasso/Variance/Autoencoder/PCA
+    # # T = pd.concat([T_10, T_selected_filtered], axis=1)
+    # T = T_selected
     
-    T_SELECTION_ALGORITHM = "Variance" # Lasso, Variance, Autoencoder, PCA, scaled_Variance
+    # T = normalize_data(T)
+
+    # breakpoint()
+
+
+    # # OLD NORMALIZATION:
+    # # T = pd.DataFrame(normalize(T, norm='l2', axis=1), index=T.index, columns=T.columns)
+    # # standard_scaler = StandardScaler()
+    # # T = pd.DataFrame(standard_scaler.fit_transform(T), index=T.index, columns=T.columns)
+
+    # # Getting Metagenomics and Transcriptomics features in one single object
+    # MG_T = MG if MG_ONLY else T if T_ONLY else pd.concat([MG, T], axis=1)
     
-    T_path = "T_selected_features_" + T_SELECTION_ALGORITHM + ".csv"
-    T_selected = pd.read_csv(os.path.join("data/T_features/", T_path), header=0, index_col=0) 
+    # # MG_T.to_csv("data/output/MG_T_normalized.csv", index=True)
 
-    # Remove the T features that are in both T_10 and T_selected
-    # T_selected = T_selected.rename(columns=lambda x: x.split("+")[-1], inplace=False)
-    # columns_toremove = T_selected.columns.intersection(T_10.columns)
-    # T_selected_filtered = T_selected.drop(columns=columns_toremove)
+    # # MG_T = MG_T.dropna()
+    # # MG_T.to_csv("data/output/MG_T_normalized_removeNa.csv", index=True)
 
-    # T = pd.concat([T_10, T_selected_filtered], axis=1)
-    T = T_selected
-    
-    T = normalize_data(T)
+    # # MG_T = MG_T.loc[samples_ids]
+    # # MG_T.to_csv("data/output/MG_T_normalized_SampleIDcheck.csv", index=True)
+    # # # breakpoint()
 
-    # OLD NORMALIZATION:
-    # T = pd.DataFrame(normalize(T, norm='l2', axis=1), index=T.index, columns=T.columns)
-    # standard_scaler = StandardScaler()
-    # T = pd.DataFrame(standard_scaler.fit_transform(T), index=T.index, columns=T.columns)
+    # Read the saved file
 
-    # Getting Metagenomics and Transcriptomics features in one single object
-    MG_T = MG if MG_ONLY else T if T_ONLY else pd.concat([MG, T], axis=1)
-    
-    # MG_T.to_csv("data/output/MG_T_normalized.csv", index=True)
-
-    # MG_T = MG_T.dropna()
-    # MG_T.to_csv("data/output/MG_T_normalized_removeNa.csv", index=True)
-
-    # MG_T = MG_T.loc[samples_ids]
-    # MG_T.to_csv("data/output/MG_T_normalized_SampleIDcheck.csv", index=True)
-    # # breakpoint()
-
+    MG_T = pd.read_csv("data/T_MG_processed.csv", header=0, index_col=0, sep=',')
 
     ### Study correlations between features in matrix MG_T
     # plot_feature_correlation(T)
@@ -144,14 +148,14 @@ def main():
 
 
     ##### IMPORTANT: USING KEGG PATHWAYS AS FEATURES
-
     # T = pd.read_csv("data/kegg/fatty_scaled.csv", header=0, index_col=0)
     # T = T.loc[samples_ids]
 
-    T_MG = pd.read_csv("data/kegg/scaled_input_fatty.csv", header=0, index_col=0)
-    T_MG = T_MG.loc[samples_ids]
-    X = torch.tensor(T_MG.values, dtype=torch.float32)
-    print("X shape (features selected from KEGG): ", X.shape)
+    # T_MG = pd.read_csv("data/kegg/scaled_input_carbo.csv", header=0, index_col=0) # scaled_input_fatty.csv, scaled_input_carbo.csv, scaled_input_lipid.csv
+    # T_MG = T_MG.loc[samples_ids]
+    # X = torch.tensor(T_MG.values, dtype=torch.float32)
+    # print("X shape (features selected from KEGG): ", X.shape)
+
 
 
 
@@ -159,6 +163,7 @@ def main():
 
     Pheno = pd.read_csv("data/HoloFish_FishVariables_20221116.csv", header=0, index_col=0)
     Pheno = Pheno.loc[samples_ids, "Gutted.Weight.kg"]
+
 
     # Pheno = MG_T_Ph_filteredSamples[['weight']] 
     y = torch.tensor(Pheno.values, dtype=torch.float32)
@@ -577,7 +582,7 @@ def main():
 
         if MG_ONLY: name_fig = name_fig_base + "_" "MG_only" +  "_loss_CV{}.png".format(i+1)
         else:
-            name_fig = name_fig_base + "_" + str(T_SELECTION_ALGORITHM) + str(T.shape[1])
+            # name_fig = name_fig_base + "_" + str(T_SELECTION_ALGORITHM) + str(T.shape[1])
             if T_ONLY: name_fig = name_fig + "_T_only"
             name_fig = name_fig + "_loss_CV{}.png".format(i+1)
 

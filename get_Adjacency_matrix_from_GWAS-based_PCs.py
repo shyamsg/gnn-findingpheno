@@ -257,8 +257,10 @@ def filter(adj_matrix):
 
 def main():
 
-    # sample_pcs = pd.read_excel("data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)
-    sample_pcs = pd.read_csv("data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)
+    # sample_pcs_old = pd.read_csv("data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0) # REMOVED, NOW WE TAKE G from T_features_select.py output
+    sample_pcs = pd.read_csv("data/G_processed.csv", header=0, index_col=0) 
+
+
     print("INPUT SHAPE:", sample_pcs.shape)
 
     n_pcs = sample_pcs.shape[1] - 1 # the last column is the cluster_id
@@ -406,7 +408,7 @@ def main():
             csv_ending = str("adj_matrix_hc_") + str(n_pcs) + "PCs_" + "rv_" + str(cutoff)
             full_path = path + csv_ending + ".csv"
 
-            print("Saving the adjacency matrix to: ", full_path, "\n")
+            print("Saving OUTPUT adjacency matrix to: ", full_path, "\n")
             adjacency_matrix_df.to_csv(full_path, index=True, sep=',')
             # print("\nFinal Adjacency_matrix:\n", adjacency_matrix_df)
 

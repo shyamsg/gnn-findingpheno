@@ -3,21 +3,28 @@ Select features from the transcriptome data using different feature selection me
 For now, we select the Transcriptome features independently from the Metagenome features.
 """
 
-
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.spatial import distance
-from scipy.spatial.distance import pdist
+# from scipy.spatial import distance
+# from scipy.spatial.distance import pdist
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Lasso
 # from tensorflow.keras.models import Model
 # from tensorflow.keras.layers import Input, Dense
 from sklearn.feature_selection import SelectFromModel
 from sklearn.preprocessing import MinMaxScaler
-
+import torch
+from torch import nn
 import torch.utils.data as Data
-import requests
+
+
+SELECTION_METHOD =  "Variance" # "kegg"#"MOGCN-VAE" # "Variance", "Autoencoder", "PCA", "Lasso", "MOGCN-VAE"
+
+N_FEATURES_TO_USE = 100 # VARIANCE method only
+ALPHA = 0.03            # LASSO method only
+
+
 
 def normalize_data(data):
     sample_ids = data.index
@@ -30,10 +37,9 @@ def normalize_data(data):
 
 
 # IMPORTANT NOTE, now the T features are selected to predict Pheno for the overall dataset, this is overfitting, because we want that they are equally good to predict Pheno for any of the samples, not just those in the main cluster
-# TODO: TRY Multi-Modal autoencoder from MoGCN paper: 
-import torch
-from torch import nn
-from matplotlib import pyplot as plt
+# TODO: TRY Multi-Modal autoencoder from MoGCN paper:
+
+
 
 class MMAE(nn.Module):
     def __init__(self, in_feas_dim, latent_dim, a=0.4, b=0.3, c=0.3):
@@ -147,17 +153,12 @@ class MMAE(nn.Module):
 
 
 
-SELECTION_METHOD =  "Variance" # "kegg"#"MOGCN-VAE" # "Variance", "Autoencoder", "PCA", "Lasso", "MOGCN-VAE"
-
-N_FEATURES_TO_USE = 500 # VARIANCE method only
-ALPHA = 0.03           # LASSO method only
-
 def main():
 
     ### get the IDs of the sample with genomics data
     # sample_pcs = pd.read_excel("data/PCA/principalComponents_ofFish_basedOnGWAS.xlsx", header=0, index_col=0)    
-    sample_pcs_index = (pd.read_csv("data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)).index
-
+    sample_pcs = pd.read_csv("data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)
+    sample_pcs_index = list(sample_pcs.index)
     ### get the IDs of the sample with metagenomics and transcriptomics data
     # samples_with_MG_T_Ph_data = list((pd.read_csv("data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)).index)
     # sample_index_final = sample_pcs_index[sample_pcs_index.isin(samples_with_MG_T_Ph_data)]
@@ -167,19 +168,15 @@ def main():
     ### METAGENOME features
     MG = pd.read_csv("data/HoloFish_MetaG_MeanCoverage_20221114.csv", header=0, index_col=0)
     MG = MG.loc[:, MG.columns.str.startswith('MAG')]
+    MG = MG.loc[MG.index.isin(sample_pcs_index)] # get the samples for which we have G
 
     ### TRANSCRIPTOME features (UNFILTERED)
     T_unfiltered = pd.read_csv("data/HoloFish_HostRNA_normalised_GeneCounts_230117.csv", header=0, index_col=0)
     T_unfiltered = T_unfiltered[T_unfiltered.index.isin(sample_pcs_index)]
 
-    MG = MG.loc[MG.index.isin(T_unfiltered.index)]
+    # MG = MG.loc[MG.index.isin(T_unfiltered.index)] # REMOVED, NOW WE FILL MISSING VALUES WITH THE AVERAGE OF THE CLUSTER (see clustering.py) 
     
-
-    ### PHENOTYPE
-    # MG_T_Ph_f = pd.read_csv("data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)
-    # Pheno = MG_T_Ph_f.loc[T_unfiltered.index, "weight"] # get the samples with metagenomics and transcriptomics data that are in the adjacency matrix
-    # We removed the above lines: WE decided to PROCESS P SEPARETELY from MG and T! (see also clustering.py)
-
+    # PHENOTYPE (only used for the LASSO method)
     Pheno = pd.read_csv("data/HoloFish_FishVariables_20221116.csv", header=0, index_col=0)
     Pheno = Pheno.loc[T_unfiltered.index, "Gutted.Weight.kg"]
     y = Pheno
@@ -202,18 +199,76 @@ def main():
         # Save the scaled features to a CSV file
         T_scaled_df.to_csv("data/T_features/T_features_scaled.csv", index=True, sep=',')
 
+        
+
+        def select_top_variance_features(data, n_features):
+            return data[data.var(axis=0).nlargest(n_features).index]
+        
+        def save_csv(file_name, data):
+            data.to_csv(file_name, index=True, sep=',')
+            print("saving OUTPUT with selected features: ", file_name)
+
         # Select the top N_FEATURES_TO_USE with the highest variance
-        T_var_selected = T_unfiltered[T_unfiltered.var(axis=0).nlargest(N_FEATURES_TO_USE).index]
-        file_name = "data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
-        T_var_selected.to_csv(file_name, index=True, sep=',')
-        print("saving OUTPUT with selected features: ", file_name)
-
-
+        T_var_selected = select_top_variance_features(T_unfiltered, N_FEATURES_TO_USE)
+        save_csv("data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv", T_var_selected)
+        
         # Select the top N_FEATURES_TO_USE with the highest variance after scaling/normalizing
-        T_var_selected_scaled = T_scaled_df[T_scaled_df.var(axis=0).nlargest(N_FEATURES_TO_USE).index]
-        file_name = "data/T_features/T_selected_features_scaled_" + SELECTION_METHOD + ".csv"
-        T_var_selected_scaled.to_csv(file_name, index=True, sep=',')
-        print("saving OUTPUT with selected features: ", file_name)
+        T_var_selected_scaled = select_top_variance_features(T_scaled_df, N_FEATURES_TO_USE)
+        save_csv("data/T_features/T_selected_features_scaled_" + SELECTION_METHOD + ".csv", T_var_selected_scaled)
+
+
+        # Add MG data to the selected features
+
+        # T_var_selected_with_MG = pd.concat([T_var_selected, MG], axis=1)
+        # file_name = "data/T_features/T_selected_features_with_MG_" + SELECTION_METHOD + ".csv"
+        # T_var_selected_with_MG.to_csv(file_name, index=True, sep=',')
+        # print("saving OUTPUT with selected features including MG: ", file_name)
+
+        # T_var_selected_scaled_with_MG = pd.concat([T_var_selected_scaled, MG], axis=1)
+        # file_name = "data/T_features/T_selected_features_scaled_with_MG_" + SELECTION_METHOD + ".csv"
+        # T_var_selected_scaled_with_MG.to_csv(file_name, index=True, sep=',')
+        # print("saving OUTPUT with selected features including MG: ", file_name)
+
+
+        G_T_MG = pd.concat([sample_pcs, T_var_selected, MG], axis=1)
+        G_T_MG = G_T_MG.sort_values(by='cluster_id')
+
+        G_T_MG.to_csv("data/debug/G_T_MG.csv", index=True, sep=',') # DEBUG, this csv will contain NaN values for the samples that do not have T or MG data
+
+        # Fill NaN values with the average of the same column of the other non NaN elements of the cluster   # for each NaN value in G_T_MG, input the average for the same column of the other non NaN elements of the cluster (same "cluster_id")
+        for cluster_id in G_T_MG['cluster_id'].unique():
+            cluster_data = G_T_MG[G_T_MG['cluster_id'] == cluster_id]
+            for feature in G_T_MG.columns:
+                if feature != 'cluster_id':
+                    mean_value = cluster_data[feature].mean()
+                    G_T_MG.loc[G_T_MG['cluster_id'] == cluster_id, feature] = G_T_MG.loc[G_T_MG['cluster_id'] == cluster_id, feature].fillna(mean_value)
+
+        G_T_MG.to_csv("data/debug/G_T_MG_filled.csv", index=True, sep=',') # DEBUG
+
+
+        # Remove rows with at least one NaN value
+        num_samples = G_T_MG.shape[0]
+        G_T_MG = G_T_MG.dropna()
+        number_of_removed_samples = G_T_MG.shape[0] - num_samples # DEBUG
+        G_T_MG.to_csv("data/debug/G_T_MG_filled_no_NaN.csv", index=True, sep=',') # DEBUG
+
+
+        # G_T_MG.to_csv("data/G_T_MG.csv", index=True, sep=',')
+        # print("saving OUTPUT with selected features including T and MG: data/G_T_MG.csv")
+
+        G = G_T_MG.loc[:, G_T_MG.columns.str.startswith('PC') | G_T_MG.columns.str.startswith('cluster_id')]
+        G.to_csv("data/G_processed.csv", index=True, sep=',')
+        print("saving OUTPUT with G for selected samples: data/G_processed.csv")
+
+        # Remove "PC"s and "cluster_id"
+        T_MG = G_T_MG.loc[:, ~G_T_MG.columns.str.startswith('PC')]
+        T_MG = T_MG.drop(columns=['cluster_id'])
+
+        T_MG.to_csv("data/T_MG_processed.csv", index=True, sep=',')
+        print("saving OUTPUT with selected features T_MG: data/T_MG_processed.csv")
+
+
+
 
 
     if SELECTION_METHOD == "MOGCN-VAE":
@@ -246,44 +301,43 @@ def main():
         # file_name = "data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
         # selected_features_df.to_csv(file_name, index=True, sep=',')
 
+    if SELECTION_METHOD == "PCA":
+        pass
 
-    # if SELECTION_METHOD == "PCA":
+    if SELECTION_METHOD == "Autoencoder":
+        pass
+        # Define the dimensions of the input data
+        input_dim = T_unfiltered.shape[1]
 
-    # if SELECTION_METHOD == "Autoencoder":
-        
-    #     # Define the dimensions of the input data
-    #     input_dim = T_unfiltered.shape[1]
+        # Define the dimensions of the encoded representation
+        ENCODING_DIM = 32
 
-    #     # Define the dimensions of the encoded representation
-    #     ENCODING_DIM = 32
+        # Define the input layer
+        input_layer = Input(shape=(input_dim,))
 
-    #     # Define the input layer
-    #     input_layer = Input(shape=(input_dim,))
+        # Define the encoder layers
+        encoder = Dense(ENCODING_DIM, activation='relu')(input_layer)
 
-    #     # Define the encoder layers
-    #     encoder = Dense(ENCODING_DIM, activation='relu')(input_layer)
+        # Define the decoder layers
+        decoder = Dense(input_dim, activation='sigmoid')(encoder)
 
-    #     # Define the decoder layers
-    #     decoder = Dense(input_dim, activation='sigmoid')(encoder)
+        # Define the autoencoder model
+        autoencoder = Model(inputs=input_layer, outputs=decoder)
 
-    #     # Define the autoencoder model
-    #     autoencoder = Model(inputs=input_layer, outputs=decoder)
+        # Compile the autoencoder model
+        autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
 
-    #     # Compile the autoencoder model
-    #     autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
+        # Train the autoencoder model
+        autoencoder.fit(T_unfiltered, T_unfiltered, epochs=10, batch_size=32, shuffle=True)
 
-    #     # Train the autoencoder model
-    #     autoencoder.fit(T_unfiltered, T_unfiltered, epochs=10, batch_size=32, shuffle=True)
+        # Get the encoded features
+        encoded_features = encoder.predict(T_unfiltered)
 
-    #     # Get the encoded features
-    #     encoded_features = encoder.predict(T_unfiltered)
+        # Convert the encoded features to a DataFrame
+        encoded_features_df = pd.DataFrame(encoded_features, index=T_unfiltered.index)
 
-    #     # Convert the encoded features to a DataFrame
-    #     encoded_features_df = pd.DataFrame(encoded_features, index=T_unfiltered.index)
-
-    #     # Save the encoded features to a CSV file
-    #     encoded_features_df.to_csv("data/T_features/T_features_encoded.csv", index=True, sep=',')
-
+        # Save the encoded features to a CSV file
+        encoded_features_df.to_csv("data/T_features/T_features_encoded.csv", index=True, sep=',')
 
     if SELECTION_METHOD == "Lasso":
 
@@ -351,6 +405,9 @@ def main():
 
         print("Enzymes in pathway", pathway_id)
         print(enzymes)
+
+
+
 
 
 if __name__ == "__main__":
