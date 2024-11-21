@@ -39,7 +39,8 @@ import pandas as pd
 
 
 # WEIGHTED adjacency matrix:
-INPUT_FILE = "data/adj_matrices/adj_matrix_hc_132PCs_rv_0.1.csv"
+# INPUT_FILE = "data/adj_matrices/adj_matrix_hc_132PCs_rv_0.1.csv"
+INPUT_FILE = "data/adj_matrices/adj_matrix_hc_2PCs_rv_0.3.csv"
 # NON-weighted adjacency matrix:
 # INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_25-26_edges.csv"
 

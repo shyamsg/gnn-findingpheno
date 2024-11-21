@@ -29,7 +29,7 @@ def normalize_data(data):
     return scaled_data
 
 
-# IMPORTANT NOTE, TODO: now the T features are selected to predict Pheno for the overall dataset, but we should make sure that they are equally good to predict Pheno for any of the samples, not just those in the main cluster
+# IMPORTANT NOTE, now the T features are selected to predict Pheno for the overall dataset, this is overfitting, because we want that they are equally good to predict Pheno for any of the samples, not just those in the main cluster
 # TODO: TRY Multi-Modal autoencoder from MoGCN paper: 
 import torch
 from torch import nn
@@ -147,7 +147,7 @@ class MMAE(nn.Module):
 
 
 
-SELECTION_METHOD = "kegg" #"Variance" #"MOGCN-VAE" # "Variance", "Autoencoder", "PCA", "Lasso", "MOGCN-VAE"
+SELECTION_METHOD =  "Variance" # "kegg"#"MOGCN-VAE" # "Variance", "Autoencoder", "PCA", "Lasso", "MOGCN-VAE"
 
 N_FEATURES_TO_USE = 500 # VARIANCE method only
 ALPHA = 0.03           # LASSO method only
@@ -206,14 +206,14 @@ def main():
         T_var_selected = T_unfiltered[T_unfiltered.var(axis=0).nlargest(N_FEATURES_TO_USE).index]
         file_name = "data/T_features/T_selected_features_" + SELECTION_METHOD + ".csv"
         T_var_selected.to_csv(file_name, index=True, sep=',')
-        print("Saved the selected features to a CSV file:", file_name)
+        print("saving OUTPUT with selected features: ", file_name)
 
 
         # Select the top N_FEATURES_TO_USE with the highest variance after scaling/normalizing
         T_var_selected_scaled = T_scaled_df[T_scaled_df.var(axis=0).nlargest(N_FEATURES_TO_USE).index]
         file_name = "data/T_features/T_selected_features_scaled_" + SELECTION_METHOD + ".csv"
         T_var_selected_scaled.to_csv(file_name, index=True, sep=',')
-        print("Saved the selected features to a CSV file:", file_name)
+        print("saving OUTPUT with selected features: ", file_name)
 
 
     if SELECTION_METHOD == "MOGCN-VAE":

@@ -1,9 +1,9 @@
-from torch_geometric.data import Data
+# from torch_geometric.data import Data
 import numpy as np
 import pandas as pd
 from scipy.spatial import distance
-from torch_geometric.utils import from_scipy_sparse_matrix
-import scipy.sparse as sp
+# from torch_geometric.utils import from_scipy_sparse_matrix
+# import scipy.sparse as sp
 import matplotlib.pyplot as plt
 
 from similarity_graph_utilities import get_edges_from_adjacency
@@ -11,7 +11,7 @@ from similarity_graph_utilities import plot_gr
 
 ###!!! Parameters of the script:
 BINARY_EDGES = False # if True, the edges are binarized (0 or 1), if False, the edge weights are kept as they are (real values)
-N_PCs = 132 # Defined after using the R script, 8/48/132 for 25/50/75 explained variance
+# N_PCs = 132 # Defined after using the R script, 8/48/132 for 25/50/75 explained variance
 
 
 def get_similarity_matrix(sample_pcs, n_samples, print_tmp=False):
@@ -166,7 +166,7 @@ def select_edges(sample_similarity_matrix, indexes, cluster_id, cutoff, min_edge
         if print_tmp: print("m1:\n", m1)
 
         
-        #### 2: Keep the top connection for each node
+        #### 2: Keep the top min_edges connection for each node
 
         # Find the indices of the N highest values in each row
         top_indices = np.argsort(sample_similarity_matrix, axis=1)[:, -min_edges:]
@@ -261,6 +261,8 @@ def main():
     sample_pcs = pd.read_csv("data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", header=0, index_col=0)
     print("INPUT SHAPE:", sample_pcs.shape)
 
+    n_pcs = sample_pcs.shape[1] - 1 # the last column is the cluster_id
+
     ## COUNT THE NUMBER OF SAMPLES PER EACH CLUSTER
     # sample_pcs = pd.DataFrame(sample_pcs)
     # counts_groupby_size = sample_pcs.groupby('cluster_id').size().reset_index(name='count')
@@ -287,9 +289,8 @@ def main():
     # print(N_SAMPLES) # 207 after filtering, 361 before filtering (now we added cluster-filtering, so the number of samples is different from the one in the R script)
 
     cluster_id = sample_pcs["cluster_id"]
-    
-    # We select the first N_PCs features. N_PCs = 50 account for ~50% variability (see R file for the PC analysis)
-    sample_pcs = sample_pcs.iloc[:,0:N_PCs]
+
+    # sample_pcs = sample_pcs.iloc[:,0:N_PCs]
     # sample_pcs = pd.concat([sample_pcs.iloc[:,0:N_PCs], sample_pcs["cluster_id"]], axis=1) # we add the cluster_id to the PCs, to limit the within-cluster connectivity
     
     indexes = sample_pcs.index
@@ -376,7 +377,7 @@ def main():
                     adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes, columns=indexes) # we use the indexes of the samples to set the row and column names
                     
                     
-                    csv_ending = str("hc_") + str(N_PCs) + "PCs_" + str(MIN_EDGES) + "-" + str(MAX_EDGES) + "_edges_bin"                    
+                    csv_ending = str("hc_") + str(n_pcs) + "PCs_" + str(MIN_EDGES) + "-" + str(MAX_EDGES) + "_edges_bin"                    
                     
                     adjacency_matrix_df.to_csv("data/adj_matrices/adj_matrix_"+ csv_ending +".csv", index=True, sep=',')
                     # print("\nFinal Adjacency_matrix:\n", adjacency_matrix_df)
@@ -402,7 +403,7 @@ def main():
             adjacency_matrix_df = pd.DataFrame(adjacency_matrix, index=indexes, columns=indexes) # we use the indexes of the samples to set the row and column names
 
             path = "data/adj_matrices/"
-            csv_ending = str("adj_matrix_hc_") + str(N_PCs) + "PCs_" + "rv_" + str(cutoff)
+            csv_ending = str("adj_matrix_hc_") + str(n_pcs) + "PCs_" + "rv_" + str(cutoff)
             full_path = path + csv_ending + ".csv"
 
             print("Saving the adjacency matrix to: ", full_path, "\n")

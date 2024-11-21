@@ -16,8 +16,12 @@ from sklearn.metrics import r2_score
 from sklearn.linear_model import LinearRegression
 
 
-CLUSTERING_METHOS = "Hierarchical" # "K-means", "Hierarchical", "DBSCAN
-MAX_POINTS_SELECTED_PER_CLUSTER = 5 # Must be >=1
+N_PCs = 2  #TODO MAKE THIS A USED DEFINED PARAMETER, it could also be a percentage of the variance explained. IT COULD ALSO be optimized using optuna
+# Try just 2 PCs to avoid overfitting, which explains 0.12687 of the phenotypic variance
+
+
+CLUSTERING_METHOS = "Hierarchical" # "K-means", "Hierarchical", todo:"DBSCAN
+MAX_POINTS_SELECTED_PER_CLUSTER = 500 # Must be >=1
 
 
 def plot_dendrogram(Z, title="Hierarchical Clustering Dendrogram"):
@@ -38,17 +42,12 @@ def main():
     # WE SEPARATELY PROCESS MG and T! samples_with_MG_T_Ph_data = list((pd.read_csv("data/T_MG_P_input_data/final_input.csv", header=0, index_col=0)).index)
     T_samples = list((pd.read_csv("data/HoloFish_HostRNA_normalised_GeneCounts_230117.csv", header=0, index_col=0)).index)
     MG_samples = list((pd.read_csv("data/HoloFish_MetaG_MeanCoverage_20221114.csv", header=0, index_col=0)).index)
+    samples_list = list(set(T_samples).intersection(set(MG_samples)))
 
-    sample_pcs = sample_pcs[sample_pcs.index.isin(T_samples) & sample_pcs.index.isin(MG_samples)]
-
-    print("Shape of sample_pcs (samplex x PCs):", sample_pcs.shape)
-
-    # N_PCs = sample_pcs.shape[1] # We have more PCs than samples. PCA was run on the original 361 samples (all samples with GWAS data), but we have fewer samples that have both metagenomics and transcriptomics data
-    N_PCs = 132
+    sample_pcs = sample_pcs[sample_pcs.index.isin(samples_list)]
+    print("Shape of sample_pcs (sample x PC matrix):", sample_pcs.shape)
 
     sample_pcs = sample_pcs.iloc[:,0:N_PCs]
-
-    # sample_pcs = sample_pcs.iloc[0:20, :]
 
     if CLUSTERING_METHOS == "K-means":
         ### K-means clustering ############
@@ -80,28 +79,26 @@ def main():
 
         THRESHOLD = 500 # Adjust as needed
 
-        ### Hierarchical clustering ############
-        ### To aggregate points that are very close to each other into their average, you can use hierarchical clustering to identify clusters of closely located points and then compute the average for each cluster
+        ### Hierarchical clustering ### To aggregate points that are very close to each other into their average, you can use hierarchical clustering to identify clusters of closely located points and then compute the average for each cluster
         
         # Perform hierarchical clustering
-        Z = linkage(sample_pcs, method='average')  # method= 'ward', 'single', 'complete', 'average', 'weighted', 'centroid', 'median'
+        def perform_hc(sample_pcs, threshold, method='average', plot=True, title_plot="Hierarchical Clustering Dendrogram"):
+            Z = linkage(sample_pcs, method=method)  # method= 'ward', 'single', 'complete', 'average', 'weighted', 'centroid', 'median'
+            if plot: plot_dendrogram(Z, title=title_plot)
+            clusters = fcluster(Z, threshold, criterion='distance') # Determine clusters based on a distance THRESHOLD
+            cluster_counts = np.bincount(clusters)[1:] # Aggregate points within each cluster
+            print("Number of points in each cluster:\n", cluster_counts) # Number of points in each cluster
+            print("Number of clusters: ", len(cluster_counts))
+            return clusters
 
-        plot_dendrogram(Z)
-        
-        # Determine clusters based on a distance THRESHOLD
-        clusters = fcluster(Z, THRESHOLD, criterion='distance')
-        # Aggregate points within each cluster
-        cluster_counts = np.bincount(clusters)[1:]
-        print("Number of points in each cluster:\n", cluster_counts) # Number of points in each cluster
-        print("Number of clusters: ", len(cluster_counts))
+        clusters = perform_hc(sample_pcs, THRESHOLD)
 
-        cluster_averages = {}
+
+        cluster_averages = {} # Compute the average of each cluster
         for cluster_id in np.unique(clusters):
             cluster_points = sample_pcs[clusters == cluster_id]
             cluster_average = np.mean(cluster_points, axis=0)
             cluster_averages[cluster_id] = cluster_average
-        # Now cluster_averages contains the average point for each cluster
-
 
         selected_points = []
         for cluster_id in np.unique(clusters):
@@ -109,7 +106,7 @@ def main():
         # Keep at most "MAX_POINTS_SELECTED_PER_CLUSTER" points per cluster
             # for i in range(0, min(cluster_points.shape[0], MAX_POINTS_SELECTED_PER_CLUSTER)):
             #     selected_points.extend(cluster_points.iloc[i].index.tolist()) 
-        # IMPROVEMENT: instead of keeping the first "MAX_POINTS_SELECTED_PER_CLUSTER" points, we keep the points of each cluster that are FURTHEST from each other in the cluster
+            # IMPROVEMENT: instead of keeping the first "MAX_POINTS_SELECTED_PER_CLUSTER" points, we keep the points of each cluster that are FURTHEST from each other in the cluster
             num_points = cluster_points.shape[0]
             if num_points <= MAX_POINTS_SELECTED_PER_CLUSTER:
                 selected_points.extend(cluster_points.index.tolist())
@@ -133,15 +130,12 @@ def main():
         # sample_pcs_d = pd.DataFrame(selected_points)
         sample_pcs_d = sample_pcs_d.sort_index()
 
-        Z = linkage(sample_pcs_d, method='average')
-        plot_dendrogram(Z, title="Hierarchical Clustering Dendrogram after selecting at most the furthest {} points per cluster".format(MAX_POINTS_SELECTED_PER_CLUSTER))
-        clusters = fcluster(Z, THRESHOLD, criterion='distance')
-        cluster_counts = np.bincount(clusters)[1:]
-        print("Number of points in each cluster:\n", cluster_counts) # Number of points in each cluster
-        print("Number of clusters: ", len(cluster_counts))
+        # Perform hierarchical clustering again
+        clusters = perform_hc(sample_pcs_d, THRESHOLD, title_plot= "Hierarchical Clustering Dendrogram after selecting at most the furthest {} points per cluster".format(MAX_POINTS_SELECTED_PER_CLUSTER), plot=True)
         
 
         sample_pcs_d['cluster_id'] = clusters
+        print("\nsaving OUTPUT: data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv")
         sample_pcs_d.to_csv("data/PCA/PCs_Fish_GWAS-based_cluster-filtered.csv", index=True, sep=',')
 
         samples_ids = sample_pcs_d.index.tolist()
@@ -150,48 +144,42 @@ def main():
         Pheno = Pheno.loc[samples_ids, "Gutted.Weight.kg"]
 
 
+        # Visualization (and R2 correlation) of the selected points
+        samples_pheno = pd.concat([sample_pcs_d.iloc[:,0:N_PCs], Pheno], axis=1)
 
-        # !!! We take just the first 200 PCs for the sake of visualization
-        samples_pheno = pd.concat([sample_pcs_d.iloc[:,0:200], Pheno], axis=1)
+        print("\n\nsaving OUTPUT: data/PCs_Fish_GWAS-based_cluster-filtered_withPheno.csv")
         samples_pheno.to_csv("data/PCs_Fish_GWAS-based_cluster-filtered_withPheno.csv", index=True, sep=',')
-
-
-        # Plot the samples on the first principal component axis
 
         samples_pheno_matrix = samples_pheno.to_numpy()
         pc1_values = samples_pheno_matrix[:, 0]
         pc2_values = samples_pheno_matrix[:, 1]
-        pheno_values = samples_pheno_matrix[:, -1]
 
         # Plot each sample on the x-axis using PC1 values
         plt.figure(figsize=(10, 6))
         # plt.scatter(pc1_values, np.zeros_like(pc1_values), alpha=0.7)
         # plt.scatter(pc1_values, pheno_values, alpha=0.7) # OLD ONE WITH JUST ONE PRINCIPAL COMPONENT
         plt.xlabel("PC1")
-        #plt.ylabel("Weight")
-        plt.ylabel("PC2")
-        plt.scatter(pc1_values, pc2_values, c=pheno_values, cmap='viridis', alpha=0.7)
+        #plt.ylabel("Weight") # if 1 dimension
+        plt.ylabel("PC2") # if 2 dimensions
+        plt.scatter(pc1_values, pc2_values, c=Pheno, cmap='viridis', alpha=0.7)
         plt.colorbar(label='Weight')
         # plt.yticks([])  # Hide y-axis since all points are at zero on y
         plt.title("Samples Plotted on PC1,PC2 x Weight")
         plt.show()
 
 
-        
-        # Calculate R2 correlation value between PC values and weight
-        X = samples_pheno_matrix[:, :132]  # PC1 and PC2 values, the last column is the weight!! You need to exclude it here
-        y = samples_pheno_matrix[:, -1]  # Weight values
+        ### Calculate R2 correlation value between PC values and weight
+        X = samples_pheno_matrix[:, :N_PCs]  # PC1 and PC2 values, the last column is the weight!! You need to exclude it here
+        y = Pheno #samples_pheno_matrix[:, -1]  # Weight values
 
         # Fit a linear regression model
         model = LinearRegression()
         model.fit(X, y)
-
         # Predict the weight values
         y_pred = model.predict(X)
-
         # Calculate the R2 score
         r2 = r2_score(y, y_pred)
-        print("R2 correlation value between PC values and weight:", r2)
+        print("\nR2 correlation value between PC values and weight:", r2)
         
         # We can repeat this process iteratively to further reduce the number of points. We get to a point where each cluster contains exactly 1 point except for one cluster, which contains the remaining points. We keep only one point for this cluster. Then repeat.
 
