@@ -53,7 +53,7 @@ def get_similarity_matrix(sample_pcs, n_samples, print_tmp=False):
     sample_similarity_matrix = np.ones((n_samples,n_samples))-dist_matrix
     # TODO INSTEAD OF FOCUSING ON SIMILARITY, USE THE DISTANCES: sample_similarity_matrix = dist_matrix
     # We want 0s insted of 1s for the diagonal
-    np.fill_diagonal(sample_similarity_matrix, 0)
+    # np.fill_diagonal(sample_similarity_matrix, 0) # REMOVED, we now have 1s in the diagonal, each node points to itself
     if print_tmp: print("\nMatrix after 1-dist_matrix and 0s in the diagonal operation\n", sample_similarity_matrix)
 
     df = pd.DataFrame(sample_similarity_matrix)

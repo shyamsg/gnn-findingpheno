@@ -16,10 +16,11 @@ from sklearn.metrics import r2_score
 from sklearn.linear_model import LinearRegression
 
 
-N_PCs = 8  #TODO MAKE THIS A USED DEFINED PARAMETER, it could also be a percentage of the variance explained. IT COULD ALSO be optimized using optuna
+N_PCs = 40  #TODO MAKE THIS A USED DEFINED PARAMETER, it could also be a percentage of the variance explained. IT COULD ALSO be optimized using optuna
 # Try just 2 PCs to avoid overfitting, which explains 0.12687 of the phenotypic variance
 
 CLUSTERING_METHOS = "Hierarchical" # "K-means", "Hierarchical", todo:"DBSCAN
+THRESHOLD_CLUSTERING = 500 # for hierarchical clustering
 MAX_POINTS_SELECTED_PER_CLUSTER = 500 # Must be >=1
 
 
@@ -48,13 +49,17 @@ def main():
     # T_index = MG_index = T_MG_samples.index
 
     
-    samples_ids_T_MG = list(set(T_index).intersection(set(MG_index)))
-    # TODO: do union instead of intersection: Add the samples that only have G (+either T or MG) data to the graph. Input missing data (MG or T) for the samples that are missing such data by averaging the neighbors(Synthetic data)
+    # samples_ids_T_MG = list(set(T_index).intersection(set(MG_index)))
+    # WE NOW do UNION instead of intersection: Add the samples that only have G (+either T or MG) data to the graph. Input missing data (MG or T) for the samples that are missing such data by averaging the neighbors(Synthetic data)
     samples_ids_T_MG = list(set(T_index).union(set(MG_index))) # We get 453 instead of 288 samples, and 354 instead of 244 samples when intersecting with G data
 
-    ### IMPORTANT: we have 40 sample for which there are both MG and T but no G: TODO: can we add G in some way? (average the neighbors?)
+    ### IMPORTANT: we have 40 sample for which there are both MG and T but no G: TODO: can we add G in some way? 
     missing_samples = [sample for sample in samples_ids_T_MG if sample not in sample_pcs.index]
     print("Samples without G:", len(missing_samples))
+    print("Samples without G:", missing_samples)
+
+    # Sort the list of samples_ids_T_MG
+    samples_ids_T_MG.sort()
 
     sample_pcs = sample_pcs[sample_pcs.index.isin(samples_ids_T_MG)]
     print("Shape of sample_pcs (sample x PC matrix):", sample_pcs.shape)
@@ -89,22 +94,19 @@ def main():
         ########################################################################
 
     if CLUSTERING_METHOS == "Hierarchical":
-
-        THRESHOLD = 120 # Adjust as needed
-
         ### Hierarchical clustering ### To aggregate points that are very close to each other into their average, you can use hierarchical clustering to identify clusters of closely located points and then compute the average for each cluster
         
         # Perform hierarchical clustering
         def perform_hc(sample_pcs, threshold, method='average', plot=True, title_plot="Hierarchical Clustering Dendrogram"):
             Z = linkage(sample_pcs, method=method)  # method= 'ward', 'single', 'complete', 'average', 'weighted', 'centroid', 'median'
-            # if plot: plot_dendrogram(Z, title=title_plot)
+            if plot: plot_dendrogram(Z, title=title_plot)
             clusters = fcluster(Z, threshold, criterion='distance') # Determine clusters based on a distance THRESHOLD
             cluster_counts = np.bincount(clusters)[1:] # Aggregate points within each cluster
             print("Number of points in each cluster:\n", cluster_counts) # Number of points in each cluster
             print("Number of clusters: ", len(cluster_counts))
             return clusters
 
-        clusters = perform_hc(sample_pcs, THRESHOLD)
+        clusters = perform_hc(sample_pcs, THRESHOLD_CLUSTERING)
 
         cluster_averages = {} # Compute the average of each cluster
         for cluster_id in np.unique(clusters):
@@ -141,7 +143,7 @@ def main():
         sample_pcs_d = (sample_pcs.loc[selected_points]).sort_index()
 
         # Perform hierarchical clustering again
-        clusters = perform_hc(sample_pcs_d, THRESHOLD, title_plot= "Hierarchical Clustering Dendrogram after selecting at most the furthest {} points per cluster".format(MAX_POINTS_SELECTED_PER_CLUSTER), plot=True)
+        clusters = perform_hc(sample_pcs_d, THRESHOLD_CLUSTERING, title_plot= "Hierarchical Clustering Dendrogram after selecting at most the furthest {} points per cluster".format(MAX_POINTS_SELECTED_PER_CLUSTER), plot=True)
         
         # We can repeat this process iteratively to further reduce the number of points. We get to a point where each cluster contains exactly 1 point except for one cluster, which contains the remaining points. We keep only one point for this cluster. Then repeat.
 

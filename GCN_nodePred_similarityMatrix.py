@@ -39,10 +39,10 @@ import pandas as pd
 
 
 # WEIGHTED adjacency matrix:
-# INPUT_FILE = "data/adj_matrices/adj_matrix_hc_132PCs_rv_0.1.csv"
-ADJ_MATRIX_FILE = "data/adj_matrices/adj_matrix_hc_8PCs_rv_0.6.csv"
+ADJ_MATRIX_FILE = "data/adj_matrices/adj_matrix_hc_40PCs_rv_0.4.csv"
 # NON-weighted adjacency matrix:
-# INPUT_FILE = "data/adj_matrices/adj_matrix_hc_360PCs_25-26_edges.csv"
+
+MG_T_FILE = "data/T_MG_final_scaled.csv"
 
 # Decide whether you want to restrict the feature space to T or MG only
 T_ONLY = False
@@ -136,7 +136,7 @@ def main():
 
     # Read the saved file
 
-    MG_T = pd.read_csv("data/T_MG_processed.csv", header=0, index_col=0, sep=',')
+    MG_T = pd.read_csv(MG_T_FILE, header=0, index_col=0, sep=',')
 
     ### Study correlations between features in matrix MG_T
     # plot_feature_correlation(T)
@@ -144,7 +144,7 @@ def main():
 
     X = torch.tensor(MG_T.values, dtype=torch.float32)
     # X = torch.tensor(MG_T_normalized, dtype=torch.float)
-    print("X shape (features selected from our script T_features_select.py): ", X.shape)
+    print("X shape (features selected from our script): ", X.shape)
 
 
     ##### IMPORTANT: USING KEGG PATHWAYS AS FEATURES
@@ -582,7 +582,7 @@ def main():
 
         if MG_ONLY: name_fig = name_fig_base + "_" "MG_only" +  "_loss_CV{}.png".format(i+1)
         else:
-            # name_fig = name_fig_base + "_" + str(T_SELECTION_ALGORITHM) + str(T.shape[1])
+            name_fig = name_fig_base + "_" + str(T_SELECTION_ALGORITHM) + str(MG_T.shape[1])
             if T_ONLY: name_fig = name_fig + "_T_only"
             name_fig = name_fig + "_loss_CV{}.png".format(i+1)
 

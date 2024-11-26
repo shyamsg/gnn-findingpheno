@@ -21,6 +21,11 @@ import torch.utils.data as Data
 
 SELECTION_METHOD =  "Variance" # "kegg"#"MOGCN-VAE" # "Variance", "Autoencoder", "PCA", "Lasso", "MOGCN-VAE"
 
+# TODO: ADD A METHOD like VARIANCE but that reduced MULTICOLINEARITY (e.g. PCA, but with real features, not PCs)
+# with LASSO, now the T features are selected to predict Pheno for the overall dataset, this is overfitting, because we want that they are equally good to predict Pheno for any of the samples, not just those in the main cluster
+
+# TODO For clusters (sometimes with size 1) where all samples are missing that feature, add the average of nearby clusters/samples
+
 N_FEATURES_TO_USE = 100 # VARIANCE method only
 ALPHA = 0.03            # LASSO method only
 
@@ -36,10 +41,7 @@ def normalize_data(data):
     return scaled_data
 
 
-# IMPORTANT NOTE, now the T features are selected to predict Pheno for the overall dataset, this is overfitting, because we want that they are equally good to predict Pheno for any of the samples, not just those in the main cluster
-# TODO: TRY Multi-Modal autoencoder from MoGCN paper:
-
-
+# TRY Multi-Modal autoencoder from MoGCN paper:
 
 class MMAE(nn.Module):
     def __init__(self, in_feas_dim, latent_dim, a=0.4, b=0.3, c=0.3):
@@ -152,7 +154,6 @@ class MMAE(nn.Module):
         # plt.savefig('result/AE_train_loss.png')
 
 
-
 def main():
 
     ### get the IDs of the sample with genomics data
@@ -200,7 +201,6 @@ def main():
         T_scaled_df.to_csv("data/T_features/T_features_scaled.csv", index=True, sep=',')
 
         
-
         def select_top_variance_features(data, n_features):
             return data[data.var(axis=0).nlargest(n_features).index]
         
@@ -215,6 +215,7 @@ def main():
         # Select the top N_FEATURES_TO_USE with the highest variance after scaling/normalizing
         T_var_selected_scaled = select_top_variance_features(T_scaled_df, N_FEATURES_TO_USE)
         save_csv("data/T_features/T_selected_features_scaled_" + SELECTION_METHOD + ".csv", T_var_selected_scaled)
+
 
 
         # Add MG data to the selected features
@@ -232,42 +233,57 @@ def main():
 
         G_T_MG = pd.concat([sample_pcs, T_var_selected, MG], axis=1)
         G_T_MG = G_T_MG.sort_values(by='cluster_id')
-
         G_T_MG.to_csv("data/debug/G_T_MG.csv", index=True, sep=',') # DEBUG, this csv will contain NaN values for the samples that do not have T or MG data
 
-        # Fill NaN values with the average of the same column of the other non NaN elements of the cluster   # for each NaN value in G_T_MG, input the average for the same column of the other non NaN elements of the cluster (same "cluster_id")
-        for cluster_id in G_T_MG['cluster_id'].unique():
-            cluster_data = G_T_MG[G_T_MG['cluster_id'] == cluster_id]
-            for feature in G_T_MG.columns:
-                if feature != 'cluster_id':
-                    mean_value = cluster_data[feature].mean()
-                    G_T_MG.loc[G_T_MG['cluster_id'] == cluster_id, feature] = G_T_MG.loc[G_T_MG['cluster_id'] == cluster_id, feature].fillna(mean_value)
+        def fill_NaN(data):
+            # Fill NaN values with the average of the same column of the other non NaN elements of the cluster # for each NaN value in G_T_MG, input the average for the same column of the other non NaN elements of the cluster (same "cluster_id")
+            for cluster_id in data['cluster_id'].unique():
+                cluster_data = data[data['cluster_id'] == cluster_id]
+                for feature in data.columns:
+                    if feature != 'cluster_id':
+                        mean_value = cluster_data[feature].mean()
+                        data.loc[data['cluster_id'] == cluster_id, feature] = data.loc[data['cluster_id'] == cluster_id, feature].fillna(mean_value)
+            return data
+        
+        G_T_MG = fill_NaN(G_T_MG) 
 
         G_T_MG.to_csv("data/debug/G_T_MG_filled.csv", index=True, sep=',') # DEBUG
 
-
-        # Remove rows with at least one NaN value
-        num_samples = G_T_MG.shape[0]
-        G_T_MG = G_T_MG.dropna()
-        number_of_removed_samples = G_T_MG.shape[0] - num_samples # DEBUG
+        G_T_MG = G_T_MG.dropna() # this can be moved inside the function above, we keep it here for debugging purposes
+        # number_of_removed_samples = G_T_MG.shape[0] - sample_pcs.shape[0]
         G_T_MG.to_csv("data/debug/G_T_MG_filled_no_NaN.csv", index=True, sep=',') # DEBUG
 
 
-        # G_T_MG.to_csv("data/G_T_MG.csv", index=True, sep=',')
-        # print("saving OUTPUT with selected features including T and MG: data/G_T_MG.csv")
-
+        # NOW WE SAVE G AND T_MG SEPARATELY for further processing
         G = G_T_MG.loc[:, G_T_MG.columns.str.startswith('PC') | G_T_MG.columns.str.startswith('cluster_id')]
         G.to_csv("data/G_processed.csv", index=True, sep=',')
         print("saving OUTPUT with G for selected samples: data/G_processed.csv")
 
-        # Remove "PC"s and "cluster_id"
-        T_MG = G_T_MG.loc[:, ~G_T_MG.columns.str.startswith('PC')]
-        T_MG = T_MG.drop(columns=['cluster_id'])
-
+        T_MG = G_T_MG.loc[:, ~G_T_MG.columns.str.startswith('PC') & ~G_T_MG.columns.str.startswith('cluster_id')]
         T_MG.to_csv("data/T_MG_processed.csv", index=True, sep=',')
         print("saving OUTPUT with selected features T_MG: data/T_MG_processed.csv")
 
 
+        # SCALED TRANSCRIPTOME FEATURES
+        G_T_MG_scaled = pd.concat([sample_pcs, T_var_selected_scaled, MG], axis=1)
+        G_T_MG_scaled = G_T_MG_scaled.sort_values(by='cluster_id')
+        G_T_MG_scaled.to_csv("data/debug/G_T_MG_scaled.csv", index=True, sep=',') # DEBUG
+        G_T_MG_scaled = fill_NaN(G_T_MG_scaled)
+        G_T_MG_scaled.to_csv("data/debug/G_T_MG_scaled_filled.csv", index=True, sep=',') # DEBUG
+        G_T_MG_scaled.dropna()
+        G_T_MG_scaled.to_csv("data/debug/G_T_MG_scaled_filled_no_NaN.csv", index=True, sep=',') # DEBUG
+        G_T_MG_scaled = G_T_MG_scaled.dropna()
+        T_MG_scaled = G_T_MG_scaled.loc[:, ~G_T_MG_scaled.columns.str.startswith('PC') & ~G_T_MG_scaled.columns.str.startswith('cluster_id')]
+        T_MG_scaled.to_csv("data/T_MG_scaled_processed.csv", index=True, sep=',')
+        print("saving OUTPUT with selected features T_MG scaled: data/T_MG_scaled_processed.csv")
+
+        scaler = StandardScaler()
+        T_MG_final_scaled = scaler.fit_transform(T_MG_scaled)
+        T_MG_final_scaled = pd.DataFrame(T_MG_final_scaled, index=T_MG_scaled.index, columns=T_MG_scaled.columns)
+        T_MG_final_scaled.to_csv("data/T_MG_final_scaled.csv", index=True, sep=',')
+        print("saving OUTPUT with selected features T_MG scaled at the end: data/T_MG_final_scaled.csv")
+
+        print("Final T_MG shape:", T_MG_final_scaled.shape)
 
 
 
@@ -405,8 +421,6 @@ def main():
 
         print("Enzymes in pathway", pathway_id)
         print(enzymes)
-
-
 
 
 
