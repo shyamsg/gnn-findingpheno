@@ -55,7 +55,29 @@ MG_ONLY = False
 T_SELECTION_ALGORITHM = "Variance" # Lasso, Variance, Autoencoder, PCA, scaled_Variance
     
 
+
+    # parser = argparse.ArgumentParser(description="Run parts of the script")
+    # parser.add_argument("--mode", choices=["optuna", "evaluate"], required=True, help="Select the mode to run")  
+    # args = parser.parse_args()
+
+    # if args.mode == "optuna":
+    #     run_optuna()
+    # elif args.mode == "evaluate":
+    #     best_params = {  # Replace with actual best parameters
+    #         'param1': value1,
+    #         'param2': value2,
+    #     }
+    #     evaluate_model(best_params)
+
+
+
+
 def main():
+
+
+
+
+
     
     adjacency_matrix = pd.read_csv(ADJ_MATRIX_FILE, header=0, index_col=0)
     file_name = os.path.basename(ADJ_MATRIX_FILE)
@@ -489,7 +511,7 @@ def main():
 
         # variance = torch.var(data.y)
         # print("Variance of y:", variance)
-        epochs = 1000
+        epochs = 3000
 
         # print(y)
         # out = model(data)
@@ -587,7 +609,9 @@ def main():
 
     study = optuna.create_study(direction='minimize', pruner=optuna.pruners.MedianPruner(n_warmup_steps=5))
     
-    study.optimize(objective, n_trials=5)
+    # study.optimize(objective, n_trials=100)
+
+    best_params = {'hidden_dim1': 55, 'hidden_dim2': 30, 'lr': 0.0005424950447117308, 'weight_decay': 0.0005325208317546223, 'optimizer': 'adamw'}
 
     print("Best trial:")
     trial = study.best_trial
@@ -608,7 +632,7 @@ def main():
     losses_train = []
     losses_val = []
 
-    for epoch in range(2000):
+    for epoch in range(5000):
 
         # for data in train_loader:
         final_optimizer.zero_grad()

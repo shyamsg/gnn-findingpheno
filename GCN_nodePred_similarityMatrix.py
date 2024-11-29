@@ -261,6 +261,32 @@ def main():
         # dataset_try = TUDataset(root='./data/', name='MUTAG')
         # data_try = dataset_try[0]
 
+        class GCN_optuna(torch.nn.Module):
+            def __init__(self, num_node_features, hidden_dim1, hidden_dim2):
+
+                super(GCN_optuna, self).__init__()
+                torch.manual_seed(12)
+
+                self.num_node_features = num_node_features
+                self.hidden_dim1 = hidden_dim1
+                self.hidden_dim2 = hidden_dim2
+
+                self.conv1 = GCNConv(self.num_node_features, self.hidden_dim1)
+                self.conv2 = GCNConv(self.hidden_dim1, self.hidden_dim2)
+                self.linear = torch.nn.Linear(self.hidden_dim2,1)
+
+            def forward(self, x, edge_index, edge_weight):
+                x = self.conv1(x, edge_index, edge_weight=edge_weight)
+                
+                x = F.elu(x)
+                # x = F.dropout(x, p=0.5, training=self.training)
+                x = self.conv2(x, edge_index, edge_weight=edge_weight)
+                
+                x = F.elu(x) # TODO CHECK IF WE NEED TO REMOVE THIS
+                x = self.linear(x)
+                
+                return x
+
 
         class GCN_weighted(torch.nn.Module):
             def __init__(self, num_node_features, state_dim):
@@ -418,7 +444,12 @@ def main():
             
 
         device = 'cpu'
-        model = GCN_weighted(num_node_features=data.num_node_features, state_dim=32).to(device) #state_dim=16
+
+        hidden_dim1 = 55
+        hidden_dim2 = 30
+
+        model = GCN_optuna(num_node_features=data.num_node_features, hidden_dim1=hidden_dim1, hidden_dim2=hidden_dim2).to(device)
+        # model = GCN_weighted(num_node_features=data.num_node_features, state_dim=32).to(device) #state_dim=16
         # model = GCN(hidden_channels=64).to(device)
         print(model)
 
@@ -431,17 +462,20 @@ def main():
         # mse_loss = F.mse_loss()
         # mae_loss = F.l1_loss()
 
-        # mse_loss = torch.nn.MSELoss()
-        # mae_loss = torch.nn.L1Loss()
 
         loss_fun = torch.nn.MSELoss()
         # loss_fun = torch.nn.L1Loss()
 
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=4e-3,weight_decay=5e-5) #weight_decay=5e-4)
+        lr = 0.0005424950447117308 # defined by Optuna
+        weight_decay = 0.0005325208317546223 # defined by Optuna
+
+        optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+        # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=weight_decay) 
+        # optimizer = torch.optim.Adam(model.parameters(), lr=0.0005424950447117308, weight_decay= 0.0005325208317546223) #5e-5) lr =4e-3#weight_decay=5e-4)
         
         # Learning rate scheduler
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
+        # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
 
 
         def train(losses_train, losses_val):
@@ -468,7 +502,7 @@ def main():
             
             loss_train.backward()  # Derive gradients.  ### TODO CHECK, here we only use the training set.
             optimizer.step()  # Update parameters based on gradients.
-            scheduler.step() # Update the learning rate.
+            # scheduler.step() # Update the learning rate. ### TODO, we might want to add this
 
             return loss, losses_train, losses_val
 
@@ -505,8 +539,10 @@ def main():
             # scheduler.step()
 
             if epoch % 100 == 0:
-                print(f'Epoch: {epoch:03d}, Learning rate: {scheduler.get_last_lr()[0]:.1e}, Train loss: {losses_train[-1]:.4f}, Validation loss: {losses_val[-1]:.4f}')
-
+                # if we are using scheduler
+                # print(f'Epoch: {epoch:03d}, Learning rate: {scheduler.get_last_lr()[0]:.1e}, Train loss: {losses_train[-1]:.4f}, Validation loss: {losses_val[-1]:.4f}')
+                # without scheduler:
+                print(f'Epoch: {epoch:03d}, Train loss: {losses_train[-1]:.4f}, Validation loss: {losses_val[-1]:.4f}')
         
         # for epoch in range(epochs):
 
